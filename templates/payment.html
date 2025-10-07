@@ -1,0 +1,354 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Upgrade to Pro - TripStar AI</title>
+    <style>
+        :root {
+            --primary: #00aa6c;
+            --primary-dark: #008055;
+            --secondary: #1a2b49;
+            --light: #ffffff;
+            --border: #e0e0e0;
+        }
+        
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+        
+        body {
+            background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+        
+        .payment-container {
+            background: white;
+            border-radius: 15px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+            max-width: 500px;
+            width: 100%;
+            overflow: hidden;
+        }
+        
+        .payment-header {
+            background: var(--primary);
+            color: white;
+            padding: 30px;
+            text-align: center;
+        }
+        
+        .payment-header h1 {
+            font-size: 1.8rem;
+            margin-bottom: 10px;
+        }
+        
+        .payment-body {
+            padding: 30px;
+        }
+        
+        .payment-method {
+            margin-bottom: 30px;
+        }
+        
+        .method-option {
+            border: 2px solid var(--border);
+            border-radius: 10px;
+            padding: 20px;
+            margin-bottom: 15px;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+        
+        .method-option.selected {
+            border-color: var(--primary);
+            background: #f0f9f5;
+        }
+        
+        .method-option h3 {
+            color: var(--secondary);
+            margin-bottom: 10px;
+        }
+        
+        .payment-details {
+            background: #f8f9fa;
+            padding: 20px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+        }
+        
+        .detail-row {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 10px;
+            padding-bottom: 10px;
+            border-bottom: 1px solid var(--border);
+        }
+        
+        .detail-row:last-child {
+            border-bottom: none;
+            margin-bottom: 0;
+            padding-bottom: 0;
+        }
+        
+        .detail-row.total {
+            font-weight: bold;
+            font-size: 1.1rem;
+            color: var(--primary);
+        }
+        
+        .upi-details {
+            text-align: center;
+            padding: 20px;
+            background: #e6f7f0;
+            border-radius: 10px;
+            margin-bottom: 20px;
+        }
+        
+        .upi-id {
+            font-size: 1.3rem;
+            font-weight: bold;
+            color: var(--primary);
+            margin: 10px 0;
+            padding: 10px;
+            background: white;
+            border-radius: 5px;
+            border: 2px dashed var(--primary);
+        }
+        
+        .btn {
+            width: 100%;
+            padding: 15px;
+            border: none;
+            border-radius: 8px;
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+        
+        .btn-primary {
+            background: var(--primary);
+            color: white;
+        }
+        
+        .btn-primary:hover {
+            background: var(--primary-dark);
+        }
+        
+        .btn-secondary {
+            background: #6c757d;
+            color: white;
+            margin-top: 10px;
+        }
+        
+        .btn-secondary:hover {
+            background: #5a6268;
+        }
+        
+        .manual-verification {
+            margin-top: 20px;
+            padding: 20px;
+            background: #fff3cd;
+            border-radius: 10px;
+            border: 1px solid #ffeaa7;
+        }
+        
+        .manual-verification input {
+            width: 100%;
+            padding: 10px;
+            margin: 10px 0;
+            border: 1px solid var(--border);
+            border-radius: 5px;
+        }
+        
+        .contact-info {
+            text-align: center;
+            margin-top: 20px;
+            padding: 15px;
+            background: #e6f7f0;
+            border-radius: 8px;
+        }
+        
+        .contact-info a {
+            color: var(--primary);
+            text-decoration: none;
+            font-weight: 600;
+        }
+    </style>
+</head>
+<body>
+    <div class="payment-container">
+        <div class="payment-header">
+            <h1>Upgrade to Pro</h1>
+            <p>Unlock unlimited AI itineraries and premium features</p>
+        </div>
+        
+        <div class="payment-body">
+            <div class="payment-details">
+                <div class="detail-row">
+                    <span>Plan:</span>
+                    <span>Pro Monthly</span>
+                </div>
+                <div class="detail-row">
+                    <span>Price:</span>
+                    <span>₹499</span>
+                </div>
+                <div class="detail-row total">
+                    <span>Total Amount:</span>
+                    <span>₹499</span>
+                </div>
+            </div>
+            
+            <div class="payment-method">
+                <h3>Select Payment Method</h3>
+                
+                <div class="method-option selected" data-method="upi">
+                    <h3>UPI Payment</h3>
+                    <p>Pay using any UPI app (GPay, PhonePe, Paytm, etc.)</p>
+                </div>
+            </div>
+            
+            <div class="upi-details">
+                <h3>Send Payment to:</h3>
+                <div class="upi-id" id="upi-id-display">your-upi@okaxis</div>
+                <p>Amount: <strong>₹499</strong></p>
+                <p>After payment, click "Verify Payment" below</p>
+            </div>
+            
+            <button class="btn btn-primary" id="verify-payment">
+                I've Made the Payment - Verify Now
+            </button>
+            
+            <div class="manual-verification">
+                <h3>Manual Verification</h3>
+                <p>If you've made the payment but verification fails, provide your UPI ID:</p>
+                <input type="text" id="manual-upi-id" placeholder="Enter your UPI ID">
+                <button class="btn btn-secondary" id="manual-verify">
+                    Submit for Manual Verification
+                </button>
+            </div>
+            
+            <div class="contact-info">
+                <p>Need help? Contact us: <a href="mailto:your-email@gmail.com">your-email@gmail.com</a></p>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let paymentId = null;
+        
+        // Initialize payment
+        async function initializePayment() {
+            try {
+                const response = await fetch('/payment/initiate', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        plan: 'pro'
+                    })
+                });
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    paymentId = data.payment_id;
+                    document.getElementById('upi-id-display').textContent = data.upi_id;
+                } else {
+                    alert('Failed to initialize payment: ' + data.error);
+                }
+            } catch (error) {
+                console.error('Payment initialization error:', error);
+                alert('Payment initialization failed');
+            }
+        }
+        
+        // Verify payment
+        document.getElementById('verify-payment').addEventListener('click', async function() {
+            const transactionId = prompt('Please enter your UPI Transaction ID:');
+            
+            if (!transactionId) {
+                alert('Transaction ID is required for verification');
+                return;
+            }
+            
+            try {
+                const response = await fetch('/payment/verify', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        payment_id: paymentId,
+                        transaction_id: transactionId
+                    })
+                });
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    alert('Payment verified successfully! Your account has been upgraded to PRO.');
+                    window.location.href = '/dashboard';
+                } else {
+                    alert('Payment verification failed: ' + data.error);
+                }
+            } catch (error) {
+                console.error('Payment verification error:', error);
+                alert('Payment verification failed');
+            }
+        });
+        
+        // Manual verification
+        document.getElementById('manual-verify').addEventListener('click', async function() {
+            const upiId = document.getElementById('manual-upi-id').value;
+            
+            if (!upiId) {
+                alert('Please enter your UPI ID');
+                return;
+            }
+            
+            try {
+                const response = await fetch('/payment/manual-verification', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        payment_id: paymentId,
+                        upi_id: upiId,
+                        amount: 499
+                    })
+                });
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    if (data.auto_approved) {
+                        alert('Account upgraded to PRO! You can now generate unlimited itineraries.');
+                        window.location.href = '/dashboard';
+                    } else {
+                        alert('Manual verification request submitted. We will verify your payment and upgrade your account within 24 hours. For immediate activation, contact: your-email@gmail.com');
+                    }
+                } else {
+                    alert('Manual verification failed: ' + data.error);
+                }
+            } catch (error) {
+                console.error('Manual verification error:', error);
+                alert('Manual verification failed');
+            }
+        });
+        
+        // Initialize payment on page load
+        initializePayment();
+    </script>
+</body>
+</html>

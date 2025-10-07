@@ -1,0 +1,301 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <div class="user-menu">
+        <span>Welcome, <span id="user-name">{{ user.first_name }}</span>!</span>
+        <button onclick="logout()" class="logout-btn">Logout</button>
+    </div>
+
+    <script>
+    function logout() {
+        fetch('/auth/logout')
+            .then(response => {
+                if (response.ok) {
+                    window.location.href = '/';
+                } else {
+                    alert('Logout failed');
+                }
+            })
+            .catch(error => {
+                console.error('Logout error:', error);
+                alert('Logout failed');
+            });
+    }
+    </script>
+    <title>TripStar AI - Smart Itinerary Generator</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css') }}">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+</head>
+<body>
+    <div class="app-container">
+        <header>
+            <div class="container">
+                <div class="logo">
+                    <span class="logo-icon">🌍</span>
+                    <h1>TripStar AI</h1>
+                </div>
+                <p>Smart AI-Powered Itinerary Generator for Travel Professionals</p>
+            </div>
+        </header>
+        
+        <main class="container">
+            <section class="form-section" id="form-section">
+                <h2 class="form-title">🧭 Plan Your Client's Perfect Trip</h2>
+
+                <!-- Add this in the sidebar or top section of your dashboard -->
+            <div class="dashboard-container">
+                <!-- Plan Status Widget - Add this at the top -->
+                <div class="plan-status-widget">
+                    <div class="plan-status" id="plan-status">
+                        <div class="status-free" style="display: none;">
+                            <h3>Free Plan</h3>
+                            <p>You have <span id="free-uses-remaining">3</span> free uses remaining today</p>
+                            <button onclick="upgradeToPro()" class="upgrade-btn">Upgrade to Pro</button>
+                        </div>
+                        <div class="status-pro" style="display: none;">
+                            <h3>Pro Plan 🚀</h3>
+                            <p>Unlimited AI itinerary generation</p>
+                            <div class="pro-features">
+                                <span>✓ Unlimited generations</span>
+                                <span>✓ Premium AI features</span>
+                                <span>✓ Priority support</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <form id="itinerary-form">
+                    <div class="form-group">
+                        <label for="user-name">👤 Your Name <span class="required">*</span></label>
+                        <input type="text" id="user-name" placeholder="e.g., John Doe" required>
+                    </div>
+
+                    <!-- Plan Selection -->
+                    <div class="form-group">
+                        <label>💎 Plan Selection <span class="required">*</span></label>
+                        <div class="traveler-type">
+                            <div class="option-btn selected" data-value="free">Free (3/day)</div>
+                            <div class="option-btn" data-value="pro">Pro (Unlimited)</div>
+                        </div>
+                        <input type="hidden" id="user-plan" value="free" required>
+                    </div>
+
+                    <!-- Budget Friendly Option (Pro only) -->
+                    <div class="form-group" id="budget-friendly-section" style="display: none;">
+                        <label>
+                            <input type="checkbox" id="budget-friendly">
+                            💰 Budget Friendly Itinerary
+                            <span style="font-weight: normal; color: #666; margin-left: 8px;">
+                                (Save money with optimized planning)
+                            </span>
+                        </label>
+                    </div>
+
+                    <!-- Usage Counter -->
+                    <div class="form-group" id="usage-counter">
+                        <div style="background: #e3f2fd; padding: 1rem; border-radius: 8px; text-align: center;">
+                            <strong>Free Plan Usage:</strong> 
+                            <span id="free-uses-remaining">{{ free_uses_remaining }}</span> itineraries remaining today
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label>📍 Destinations <span class="required">*</span></label>
+                        <div class="destinations-container" id="destinations-container">
+                            <div class="destination-item">
+                                <div class="searchable-select">
+                                    <input type="text" class="search-input destination-search" placeholder="Type to search countries...">
+                                    <div class="dropdown-options" id="destination-options-0"></div>
+                                </div>
+                                <input type="hidden" class="destination-value">
+                            </div>
+                        </div>
+                        <button type="button" class="add-destination" id="add-destination">+ Add Another Destination</button>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label>📅 Travel Dates <span class="required">*</span></label>
+                        <div class="date-inputs">
+                            <div>
+                                <label for="start-date">Start Date</label>
+                                <input type="date" id="start-date" required>
+                            </div>
+                            <div>
+                                <label for="end-date">End Date</label>
+                                <input type="date" id="end-date" required>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label>👥 Traveler Type <span class="required">*</span></label>
+                        <div class="traveler-type">
+                            <div class="option-btn" data-value="Solo">Solo</div>
+                            <div class="option-btn" data-value="Couple">Couple</div>
+                            <div class="option-btn" data-value="Family">Family</div>
+                            <div class="option-btn" data-value="Group">Group</div>
+                        </div>
+                        <input type="hidden" id="traveler-type" required>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label>🎯 Interests (Based on your destination)</label>
+                        <div class="interests-container" id="interests-container">
+                            <!-- Interests will be dynamically populated -->
+                        </div>
+                        <input type="hidden" id="interests">
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="currency">💱 Preferred Currency <span class="required">*</span></label>
+                        <div class="searchable-select">
+                            <input type="text" class="search-input" id="currency-search" placeholder="Type to search currencies...">
+                            <div class="dropdown-options" id="currency-options"></div>
+                        </div>
+                        <input type="hidden" id="currency" required>
+                        <input type="hidden" id="currency-symbol">
+                    </div>
+
+                    <div class="form-group">
+                        <label for="budget-amount">💰 Budget Amount <span class="required">*</span></label>
+                        <input type="number" id="budget-amount" placeholder="Enter your budget" min="0" required>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="notes">📝 Special Notes (Optional)</label>
+                        <textarea id="notes" rows="4" placeholder="Any special requirements, dietary restrictions, mobility concerns, preferences, etc."></textarea>
+                    </div>
+                    
+                    <button type="submit" class="submit-btn">✨ Generate AI Itinerary</button>
+                </form>
+            </section>
+            
+            <section class="loading-section" id="loading-section">
+                <div class="loading-animation">
+                    <div class="plane">✈️</div>
+                </div>
+                <h2>Planning your perfect journey...</h2>
+                <p>Our AI is crafting a personalized itinerary just for you</p>
+                <div class="loading-dots">
+                    <div class="dot"></div>
+                    <div class="dot"></div>
+                    <div class="dot"></div>
+                </div>
+            </section>
+            
+            <section class="result-section" id="result-section">
+                <div class="result-header">
+                    <h2 class="result-title" id="result-title">Your Personalized Itinerary</h2>
+                    <div class="action-buttons">
+                        <button class="action-btn download-btn" id="download-btn">
+                            📄 Download PDF
+                        </button>
+                        <button class="action-btn share-btn" id="share-btn" style="display: none;">
+                            📲 Share via WhatsApp
+                        </button>
+                        <button class="action-btn regenerate-btn" id="regenerate-btn">
+                            🔄 New Itinerary
+                        </button>
+                    </div>
+                </div>
+                
+                <div class="itinerary-container" id="itinerary-container">
+                    <!-- Itinerary will be generated here -->
+                </div>
+
+                <div class="popular-spots" id="popular-spots">
+                    <h3>🔥 Currently Trending in Your Destinations</h3>
+                    <div class="spots-grid" id="spots-grid">
+                        <!-- Popular spots will be added here -->
+                    </div>
+                </div>
+                
+                <div class="trip-summary" id="trip-summary">
+                    <h3 class="summary-title">📋 Trip Summary</h3>
+                    <p class="summary-text" id="summary-text"></p>
+                </div>
+            </section>
+            
+            <section class="pricing-section">
+                <h2 class="pricing-title">📦 Choose Your Plan</h2>
+                <div class="pricing-cards">
+                    <div class="pricing-card">
+                        <h3 class="plan-name">Free Trial</h3>
+                        <div class="plan-price">₹0</div>
+                        <ul class="plan-features">
+                            <li>2 AI itineraries</li>
+                            <li>Watermarked PDFs</li>
+                            <li>Basic features</li>
+                            <li>Standard support</li>
+                        </ul>
+                        <button class="plan-btn" onclick="selectPlan('free')">Get Started</button>
+                    </div>
+                    
+                    <div class="pricing-card featured">
+                        <h3 class="plan-name">Pro</h3>
+                        <div class="plan-price">₹499<span style="font-size: 1rem;">/mo</span></div>
+                        <ul class="plan-features">
+                            <li>Unlimited AI itineraries</li>
+                            <li>Custom branding</li>
+                            <li>Advanced AI features</li>
+                            <li>PDF & WhatsApp sharing</li>
+                            <li>Priority support</li>
+                            <li>Analytics dashboard</li>
+                        </ul>
+                        <button class="plan-btn" onclick="selectPlan('pro')">Go Pro</button>
+                    </div>
+                    
+                    <div class="pricing-card">
+                        <h3 class="plan-name">Per Export</h3>
+                        <div class="plan-price">₹99</div>
+                        <ul class="plan-features">
+                            <li>Pay-per-itinerary</li>
+                            <li>No watermarks</li>
+                            <li>Full AI features</li>
+                            <li>One-time payment</li>
+                        </ul>
+                        <button class="plan-btn" onclick="selectPlan('pro')">Buy Now</button>
+                    </div>
+                </div>
+            </section>
+        </main>
+        
+        <footer>
+            <div class="container">
+                <p>&copy; 2025 TripStar AI. All rights reserved.</p>
+                <p>Smart AI-Powered Itinerary Generator for Travel Professionals</p>
+            </div>
+        </footer>
+    </div>
+
+    <script>
+function upgradeToPro() {
+    window.location.href = '/payment';
+}
+
+// Check plan status on page load
+document.addEventListener('DOMContentLoaded', function() {
+    fetch('/check-pro-access')
+        .then(response => response.json())
+        .then(data => {
+            if (data.is_pro) {
+                document.querySelector('.status-free').style.display = 'none';
+                document.querySelector('.status-pro').style.display = 'block';
+            } else {
+                document.querySelector('.status-free').style.display = 'block';
+                document.querySelector('.status-pro').style.display = 'none';
+                document.getElementById('free-uses-remaining').textContent = data.free_uses_remaining;
+            }
+        })
+        .catch(error => {
+            console.error('Error checking plan status:', error);
+        });
+});
+</script>
+
+    <script src="{{ url_for('static', filename='js/index.js') }}"></script>
+</body>
+</html>

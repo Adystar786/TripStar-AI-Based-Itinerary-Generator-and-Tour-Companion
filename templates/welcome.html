@@ -1,0 +1,249 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TripStar AI - Smart Travel Planning</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/welcome.css') }}">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+</head>
+<body>
+    <!-- Navigation Header -->
+    <nav class="navbar">
+        <div class="nav-container">
+            <div class="nav-logo">
+                <span class="logo-icon">🌍</span>
+                <h1>TripStar AI</h1>
+            </div>
+           <!-- Replace the entire nav-actions section in welcome.html -->
+            <div class="nav-actions" id="nav-actions">
+                <!-- This will be dynamically populated by JavaScript -->
+                <button class="nav-btn login-btn" id="login-btn" style="display: none;">Sign In</button>
+                <button class="nav-btn signup-btn" id="signup-btn" style="display: none;">Sign Up</button>
+                <button class="nav-btn dashboard-btn" id="dashboard-btn" style="display: none;">Go to Dashboard</button>
+                <button class="nav-btn logout-btn" id="logout-btn" style="display: none;">Logout</button>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Hero Section -->
+    <section class="hero">
+        <div class="hero-container">
+            <div class="hero-content">
+                <h1 class="hero-title">Plan Your Perfect Trip with AI</h1>
+                <p class="hero-subtitle">Smart itinerary generation for travel professionals and enthusiasts</p>
+                <div class="hero-features">
+                    <div class="feature">
+                        <i class="fas fa-robot"></i>
+                        <span>AI-Powered Planning</span>
+                    </div>
+                    <div class="feature">
+                        <i class="fas fa-bolt"></i>
+                        <span>Instant Itineraries</span>
+                    </div>
+                    <div class="feature">
+                        <i class="fas fa-globe"></i>
+                        <span>Global Destinations</span>
+                    </div>
+                </div>
+                <button class="cta-button" id="get-started-btn">
+                    Get Started Free
+                    <i class="fas fa-arrow-right"></i>
+                </button>
+            </div>
+            <div class="hero-image">
+                <div class="image-placeholder">
+                    <i class="fas fa-map-marked-alt"></i>
+                    <p>AI-Generated Travel Itineraries</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Features Section -->
+    <section class="features">
+        <div class="container">
+            <h2 class="section-title">Why Choose TripStar AI?</h2>
+            <div class="features-grid">
+                <div class="feature-card">
+                    <div class="feature-icon">
+                        <i class="fas fa-magic"></i>
+                    </div>
+                    <h3>Smart AI Planning</h3>
+                    <p>Our advanced AI creates personalized itineraries based on your preferences, budget, and travel style.</p>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-icon">
+                        <i class="fas fa-clock"></i>
+                    </div>
+                    <h3>Save Time</h3>
+                    <p>Generate comprehensive travel plans in seconds instead of spending hours researching.</p>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-icon">
+                        <i class="fas fa-dollar-sign"></i>
+                    </div>
+                    <h3>Budget Optimization</h3>
+                    <p>Get cost-effective recommendations and money-saving tips for your entire trip.</p>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-icon">
+                        <i class="fas fa-mobile-alt"></i>
+                    </div>
+                    <h3>Mobile Friendly</h3>
+                    <p>Access your itineraries anywhere, with PDF export and WhatsApp sharing options.</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Pricing Section -->
+    <section class="pricing">
+        <div class="container">
+            <h2 class="section-title">Choose Your Plan</h2>
+            <p class="section-subtitle">Start free, upgrade as you grow</p>
+            <div class="pricing-cards">
+                <div class="pricing-card">
+                    <div class="plan-header">
+                        <h3>Free Trial</h3>
+                        <div class="price">₹0</div>
+                        <p class="plan-desc">Perfect for trying out our AI features</p>
+                    </div>
+                    <ul class="plan-features">
+                        <li><i class="fas fa-check"></i> 3 AI itineraries per day</li>
+                        <li><i class="fas fa-check"></i> Basic itinerary features</li>
+                        <li><i class="fas fa-check"></i> Watermarked PDF export</li>
+                        <li><i class="fas fa-check"></i> Standard support</li>
+                    </ul>
+                    <button class="plan-select-btn" data-plan="free">Get Started</button>
+                </div>
+                
+                <div class="pricing-card featured">
+                    <div class="plan-badge">Most Popular</div>
+                    <div class="plan-header">
+                        <h3>Pro Plan</h3>
+                        <div class="price">₹499<span>/mo</span></div>
+                        <p class="plan-desc">For serious travel planners</p>
+                    </div>
+                    <ul class="plan-features">
+                        <li><i class="fas fa-check"></i> Unlimited AI itineraries</li>
+                        <li><i class="fas fa-check"></i> Advanced AI features</li>
+                        <li><i class="fas fa-check"></i> Premium PDF export</li>
+                        <li><i class="fas fa-check"></i> WhatsApp sharing</li>
+                        <li><i class="fas fa-check"></i> Priority support</li>
+                        <li><i class="fas fa-check"></i> Booking links & resources</li>
+                    </ul>
+                    <button class="plan-select-btn" data-plan="pro">Go Pro</button>
+                </div>
+                
+                <div class="pricing-card">
+                    <div class="plan-header">
+                        <h3>Pay Per Export</h3>
+                        <div class="price">₹99</div>
+                        <p class="plan-desc">Flexible pay-as-you-go</p>
+                    </div>
+                    <ul class="plan-features">
+                        <li><i class="fas fa-check"></i> Pay per itinerary</li>
+                        <li><i class="fas fa-check"></i> No watermarks</li>
+                        <li><i class="fas fa-check"></i> Full AI features</li>
+                        <li><i class="fas fa-check"></i> One-time payment</li>
+                    </ul>
+                    <button class="plan-select-btn" data-plan="per_export">Buy Now</button>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Auth Modals -->
+    <div class="modal" id="auth-modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 id="modal-title">Welcome Back</h2>
+                <button class="close-btn" id="close-modal">&times;</button>
+            </div>
+            <div class="modal-body">
+                <form id="login-form" class="auth-form">
+                    <div class="form-group">
+                        <label for="login-email">Email</label>
+                        <input type="email" id="login-email" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="login-password">Password</label>
+                        <input type="password" id="login-password" required>
+                    </div>
+                    <button type="submit" class="auth-submit-btn">Sign In</button>
+                </form>
+                
+                <form id="register-form" class="auth-form" style="display: none;">
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="first-name">First Name</label>
+                            <input type="text" id="first-name" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="last-name">Last Name</label>
+                            <input type="text" id="last-name" required>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label for="register-email">Email</label>
+                        <input type="email" id="register-email" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="register-password">Password</label>
+                        <input type="password" id="register-password" required>
+                    </div>
+                    <button type="submit" class="auth-submit-btn">Create Account</button>
+                </form>
+                
+                <div class="auth-switch">
+                    <p id="switch-text">Don't have an account? <a href="#" id="switch-link">Sign up</a></p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Plan Selection Modal -->
+    <div class="modal" id="plan-modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>Select Your Plan</h2>
+                <button class="close-btn" id="close-plan-modal">&times;</button>
+            </div>
+            <div class="modal-body">
+                <p>Choose the plan that works best for you. You can always upgrade later.</p>
+                <div class="plan-options">
+                    <div class="plan-option" data-plan="free">
+                        <h3>Free Trial</h3>
+                        <div class="price">₹0</div>
+                        <ul>
+                            <li>3 itineraries per day</li>
+                            <li>Basic features</li>
+                        </ul>
+                        <button class="select-plan-btn">Select Free</button>
+                    </div>
+                    <div class="plan-option featured" data-plan="pro">
+                        <div class="plan-badge">Recommended</div>
+                        <h3>Pro Plan</h3>
+                        <div class="price">₹499<span>/mo</span></div>
+                        <ul>
+                            <li>Unlimited itineraries</li>
+                            <li>All premium features</li>
+                            <li>Priority support</li>
+                        </ul>
+                        <button class="select-plan-btn">Go Pro</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <footer class="footer">
+        <div class="container">
+            <p>&copy; 2025 TripStar AI. All rights reserved.</p>
+        </div>
+    </footer>
+
+    <script src="{{ url_for('static', filename='js/welcome.js') }}"></script>
+</body>
+</html>
