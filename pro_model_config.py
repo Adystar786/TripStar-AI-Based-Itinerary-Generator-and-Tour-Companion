@@ -71,7 +71,7 @@ class TripStarProModel:
                 ],
                 model=self.model_name,
                 temperature=0.7,
-                max_tokens=5000,  # More tokens for detailed responses
+                max_tokens=5500,  # More tokens for detailed responses
                 top_p=1
             )
             
@@ -93,10 +93,10 @@ class TripStarProModel:
 
     def _create_pro_prompt(self, user_data):
         """Create comprehensive prompt for Pro users"""
-        # Fix field name mismatches
         user_name = user_data.get('user_name', 'Traveler')
         traveler_type = user_data.get('traveler_type', 'Solo')
         destinations = user_data.get('destinations', [])
+        destination_codes = user_data.get('destination_codes', [])
         start_date = user_data.get('start_date', '')
         end_date = user_data.get('end_date', '')
         budget = user_data.get('budget', 1000)
@@ -107,80 +107,88 @@ class TripStarProModel:
         budget_friendly = user_data.get('budget_friendly', False)
         
         destinations_str = ', '.join(destinations)
+        codes_str = ', '.join(destination_codes) if destination_codes else ''
         budget_friendly_text = " with strong focus on budget optimization and cost-saving tips" if budget_friendly else ""
+        
+        # Calculate days per destination
+        if len(destinations) > 1:
+            days_per_dest = days // len(destinations)
+            remaining_days = days % len(destinations)
+            distribution = f"\nDistribute approximately {days_per_dest} days per destination, with {remaining_days} travel day(s)"
+        else:
+            distribution = ""
         
         return f"""Create a comprehensive {days}-day PRO travel itinerary with:
 
-            TRIP DETAILS:
-            - Traveler: {user_name} ({traveler_type})
-            - Destinations: {destinations_str}
-            - Dates: {start_date} to {end_date}
-            - Budget: {currency_symbol}{budget}{budget_friendly_text}
-            - Interests: {interests}
-            - Special Notes: {notes}
+    TRIP DETAILS:
+    - Traveler: {user_name} ({traveler_type})
+    - Destinations: {destinations_str} ({codes_str})
+    - Dates: {start_date} to {end_date}
+    - Budget: {currency_symbol}{budget}{budget_friendly_text}
+    - Interests: {interests}
+    - Special Notes: {notes}{distribution}
 
-RESPOND WITH THIS JSON STRUCTURE:
-{{
-  "days": [
+    CRITICAL - MULTI-DESTINATION ROUTING:
+    {f"This is a MULTI-CITY trip: {destinations_str}. You MUST create itinerary covering ALL {len(destinations)} destinations." if len(destinations) > 1 else ""}
+    {f"Clearly mark which city each day is in. Include inter-city travel logistics." if len(destinations) > 1 else ""}
+
+    RESPOND WITH THIS JSON STRUCTURE:
     {{
-      "day": 1,
-      "title": "Comprehensive Day Title",
-      "description": "Detailed overview of the day's theme and highlights including cultural context, historical significance, architectural details, and local insights",
-      "activities": [
+    "days": [
         {{
-          "time": "Morning (8:00-12:00)",
-          "description": "Detailed activity description with historical context, cultural significance, and practical information",
-          "duration": "2-3 hours",
-          "cost": "Budget estimate",
-          "bookingLink": "https://example.com/book-activity",
-          "moneySavingTip": "Cost-saving tip for this activity"
+        "day": 1,
+        "location": "City Name",
+        "title": "Day Title (City Name)",
+        "description": "Overview including WHICH CITY you're in",
+        "activities": [
+            {{
+            "time": "Morning (8:00-12:00)",
+            "description": "Activity description",
+            "duration": "2-3 hours",
+            "cost": "Budget estimate",
+            "bookingLink": "https://example.com",
+            "moneySavingTip": "Cost-saving tip"
+            }}
+        ],
+        "transportation": "Transport details for this location",
+        "accommodation": "Hotel recommendations in this city",
+        "dining": "Restaurant recommendations",
+        "dailyBudget": "Budget breakdown",
+        "tip": "Pro tip"
         }}
-      ],
-      "transportation": "Detailed transport options with costs, historical context of transit systems, and local travel insights",
-      "accommodation": "Hotel/lodging recommendations with booking links, architectural significance, and neighborhood context",
-      "dining": "Restaurant recommendations with price ranges, culinary history, and cultural dining traditions",
-      "dailyBudget": "Budget breakdown for the day",
-      "tip": "Single comprehensive pro tip combining practical advice with cultural insights"
+    ],
+    "popularSpots": [
+        {{
+        "name": "Spot Name",
+        "location": "City Name",
+        "description": "Description",
+        "bestTimeToVisit": "Timing",
+        "entranceFee": "Cost",
+        "bookingLink": "https://example.com",
+        "moneySavingTip": "Saving tip"
+        }}
+    ],
+    "bookingResources": {{
+        "flights": "https://www.skyscanner.com",
+        "hotels": "https://www.booking.com",
+        "localTours": "https://www.viator.com"
+    }},
+    "budgetBreakdown": {{
+        "accommodation": "Cost per destination",
+        "activities": "Cost breakdown",
+        "food": "Food budget",
+        "transportation": "Transport including inter-city",
+        "totalEstimated": "Total",
+        "moneySavingStrategies": ["Strategy 1", "Strategy 2"]
+    }},
+    "summary": "Overview covering ALL {len(destinations)} destinations"
     }}
-  ],
-  "popularSpots": [
-    {{
-      "name": "Spot Name",
-      "description": "Comprehensive description including historical context, architectural significance, cultural importance, visitor experience details, and local legends",
-      "bestTimeToVisit": "Ideal timing with cultural and practical reasoning",
-      "entranceFee": "Cost information with value context",
-      "bookingLink": "https://example.com/book-tickets",
-      "moneySavingTip": "How to save money here while maintaining experience quality"
-    }}
-  ],
-  "bookingResources": {{
-    "flights": "https://skyscanner.com/search-flights",
-    "hotels": "https://booking.com/search-hotels",
-    "localTours": "https://viator.com/local-tours",
-    "transport": "https://rome2rio.com/transport-options",
-    "travelInsurance": "https://worldnomads.com/travel-insurance"
-  }},
-  "budgetBreakdown": {{
-    "accommodation": "Cost estimate with luxury/mid-range/budget options",
-    "activities": "Cost estimate with premium/standard choices", 
-    "food": "Cost estimate with fine dining/local cuisine options",
-    "transportation": "Cost estimate with private/public transport choices",
-    "miscellaneous": "Cost estimate for souvenirs and unexpected expenses",
-    "totalEstimated": "Total cost analysis",
-    "moneySavingStrategies": ["Comprehensive strategy 1", "Detailed strategy 2"]
-  }},
-  "summary": "Comprehensive 4-5 paragraph trip overview with cultural context, historical background, practical advice, and personalized recommendations based on traveler profile"
-}}
 
-REQUIREMENTS:
-- Include REAL booking links for major activities (Skyscanner, Booking.com, Viator, etc.)
-- Provide detailed cost breakdowns with context
-- Add comprehensive money-saving tips for each major expense
-- Include transportation details with historical and cultural context
-- Suggest specific hotels/restaurants with architectural and culinary background
-- Provide only ONE 'tip' per day (not 'proTips' array)
-- Make descriptions extremely detailed with historical, cultural, and architectural context
-- Focus on comprehensive location explanations and cultural significance"""
+    REQUIREMENTS:
+    - Create exactly {days} days across ALL destinations: {destinations_str}
+    - Mark which city each day is in using "location" field
+    - Include realistic inter-city travel days
+    - Provide city-specific recommendations"""
     
     def _parse_pro_response(self, response_text):
         """Parse Pro AI response"""

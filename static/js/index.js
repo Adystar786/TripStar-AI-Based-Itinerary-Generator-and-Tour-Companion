@@ -1,8 +1,6 @@
 // Global variables
 let currentPlan = 'free';
 let freeUsesRemaining = 3;
-let currentSlide = 0;
-let slideInterval;
 let currentUser = null;
 
 // Country and currency data
@@ -64,30 +62,102 @@ const currencies = [
     { code: "BDT", name: "Bangladeshi Taka", symbol: "৳" }
 ];
 
+// Major airports with IATA codes
+const majorAirports = [
+    // USA
+    { city: "New York", country: "USA", code: "JFK", name: "John F. Kennedy International" },
+    { city: "New York", country: "USA", code: "LGA", name: "LaGuardia" },
+    { city: "New York", country: "USA", code: "EWR", name: "Newark Liberty International" },
+    { city: "Los Angeles", country: "USA", code: "LAX", name: "Los Angeles International" },
+    { city: "Chicago", country: "USA", code: "ORD", name: "O'Hare International" },
+    { city: "San Francisco", country: "USA", code: "SFO", name: "San Francisco International" },
+    { city: "Miami", country: "USA", code: "MIA", name: "Miami International" },
+    { city: "Boston", country: "USA", code: "BOS", name: "Logan International" },
+    
+    // Europe
+    { city: "London", country: "UK", code: "LHR", name: "Heathrow" },
+    { city: "London", country: "UK", code: "LGW", name: "Gatwick" },
+    { city: "Paris", country: "France", code: "CDG", name: "Charles de Gaulle" },
+    { city: "Paris", country: "France", code: "ORY", name: "Orly" },
+    { city: "Frankfurt", country: "Germany", code: "FRA", name: "Frankfurt Airport" },
+    { city: "Amsterdam", country: "Netherlands", code: "AMS", name: "Schiphol" },
+    { city: "Madrid", country: "Spain", code: "MAD", name: "Adolfo Suárez Madrid-Barajas" },
+    { city: "Barcelona", country: "Spain", code: "BCN", name: "Barcelona-El Prat" },
+    { city: "Rome", country: "Italy", code: "FCO", name: "Leonardo da Vinci-Fiumicino" },
+    { city: "Milan", country: "Italy", code: "MXP", name: "Malpensa" },
+    
+    // Middle East
+    { city: "Dubai", country: "UAE", code: "DXB", name: "Dubai International" },
+    { city: "Abu Dhabi", country: "UAE", code: "AUH", name: "Abu Dhabi International" },
+    { city: "Doha", country: "Qatar", code: "DOH", name: "Hamad International" },
+    { city: "Istanbul", country: "Turkey", code: "IST", name: "Istanbul Airport" },
+    { city: "Tehran", country: "Iran", code: "IKA", name: "Imam Khomeini International" },
+    { city: "Tehran", country: "Iran", code: "THR", name: "Mehrabad International" },
+    
+    // Asia
+    { city: "Tokyo", country: "Japan", code: "NRT", name: "Narita International" },
+    { city: "Tokyo", country: "Japan", code: "HND", name: "Haneda" },
+    { city: "Seoul", country: "South Korea", code: "ICN", name: "Incheon International" },
+    { city: "Beijing", country: "China", code: "PEK", name: "Beijing Capital International" },
+    { city: "Shanghai", country: "China", code: "PVG", name: "Pudong International" },
+    { city: "Hong Kong", country: "Hong Kong", code: "HKG", name: "Hong Kong International" },
+    { city: "Singapore", country: "Singapore", code: "SIN", name: "Changi Airport" },
+    { city: "Bangkok", country: "Thailand", code: "BKK", name: "Suvarnabhumi" },
+    { city: "Kuala Lumpur", country: "Malaysia", code: "KUL", name: "Kuala Lumpur International" },
+    { city: "Delhi", country: "India", code: "DEL", name: "Indira Gandhi International" },
+    { city: "Mumbai", country: "India", code: "BOM", name: "Chhatrapati Shivaji Maharaj International" },
+    { city: "Bangalore", country: "India", code: "BLR", name: "Kempegowda International" },
+    { city: "Kabul", country: "Afghanistan", code: "KBL", name: "Hamid Karzai International" },
+    
+    // Australia & Oceania
+    { city: "Sydney", country: "Australia", code: "SYD", name: "Kingsford Smith" },
+    { city: "Melbourne", country: "Australia", code: "MEL", name: "Melbourne Airport" },
+    { city: "Auckland", country: "New Zealand", code: "AKL", name: "Auckland Airport" },
+    
+    // Africa
+    { city: "Johannesburg", country: "South Africa", code: "JNB", name: "O.R. Tambo International" },
+    { city: "Cairo", country: "Egypt", code: "CAI", name: "Cairo International" },
+    { city: "Nairobi", country: "Kenya", code: "NBO", name: "Jomo Kenyatta International" },
+    
+    // South America
+    { city: "São Paulo", country: "Brazil", code: "GRU", name: "Guarulhos International" },
+    { city: "Buenos Aires", country: "Argentina", code: "EZE", name: "Ministro Pistarini International" },
+    { city: "Lima", country: "Peru", code: "LIM", name: "Jorge Chávez International" },
+    
+    // Canada
+    { city: "Toronto", country: "Canada", code: "YYZ", name: "Pearson International" },
+    { city: "Vancouver", country: "Canada", code: "YVR", name: "Vancouver International" },
+    { city: "Montreal", country: "Canada", code: "YUL", name: "Montréal-Pierre Elliott Trudeau" }
+];
+
+// Enhanced country interests with city-specific details
+const cityInterests = {
+    "Tehran": ["Historical Palaces", "Persian Gardens", "Bazaar Shopping", "Mountain Hiking", "Museums", "Persian Cuisine", "Traditional Tea Houses", "Carpet Markets", "Islamic Architecture", "Mount Tochal"],
+    "Kabul": ["Historical Sites", "Local Markets", "Mountain Views", "Afghan Cuisine", "Traditional Crafts", "Gardens", "Cultural Museums", "Local Life Experience"],
+    "Paris": ["Eiffel Tower", "Louvre Museum", "Wine Tasting", "Gourmet Food", "Shopping", "Romantic Getaways", "Art Museums", "Seine River Cruise"],
+    "London": ["British Museum", "Tower of London", "West End Shows", "Afternoon Tea", "Royal Palaces", "Markets", "Pub Culture", "Thames River"],
+    // Add more cities as needed
+};
+
 // Enhanced country interests mapping
 const countryInterests = {
-    "France": ["Wine Tasting", "Art Museums", "Historical Sites", "Gourmet Food", "Shopping", "Romantic Getaways", "Eiffel Tower", "Louvre Museum", "French Riviera", "Provence Lavender Fields", "Normandy D-Day Beaches", "Loire Valley Castles"],
-    "Italy": ["Historical Sites", "Art Museums", "Wine Tasting", "Cooking Classes", "Beach Relaxation", "Shopping", "Colosseum", "Venice Canals", "Tuscany Countryside", "Vatican City", "Amalfi Coast", "Italian Lakes"],
-    "Japan": ["Temples & Shrines", "Anime & Manga", "Sushi Making", "Hot Springs", "Cherry Blossoms", "Shopping", "Mount Fuji", "Tokyo Nightlife", "Traditional Gardens", "Bullet Train Experience", "Kyoto Geisha Districts", "Osaka Street Food"],
-    "USA": ["National Parks", "Theme Parks", "Shopping", "Beach Activities", "City Tours", "Food Tours", "Route 66 Road Trip", "New York Broadway", "Las Vegas Entertainment", "Grand Canyon", "California Coast", "Historical Landmarks"],
-    "Spain": ["Flamenco Shows", "Beach Relaxation", "Historical Sites", "Tapas Tours", "Shopping", "Nightlife", "Sagrada Familia", "Alhambra Palace", "Ibiza Clubs", "Madrid Art Museums", "Barcelona Architecture", "Andalusian Culture"],
-    "Thailand": ["Temples", "Beach Activities", "Elephant Sanctuaries", "Street Food", "Island Hopping", "Shopping", "Buddhist Temples", "Thai Massage", "Floating Markets", "Full Moon Parties", "Jungle Trekking", "Muay Thai"],
-    "India": ["Historical Monuments", "Yoga & Meditation", "Spiritual Sites", "Local Markets", "Wildlife Safaris", "Food Tours", "Taj Mahal", "Himalayan Trekking", "Kerala Backwaters", "Rajasthan Palaces", "Varanasi Ghats", "Goa Beaches"],
-    "Australia": ["Beach Activities", "Wildlife Viewing", "Wine Tasting", "Outdoor Adventures", "City Tours", "Great Barrier Reef", "Sydney Opera House", "Outback Exploration", "Surfing Lessons", "Koala Sanctuaries", "Gold Coast Theme Parks", "Indigenous Culture"],
-    "Greece": ["Historical Sites", "Island Hopping", "Beach Relaxation", "Greek Cuisine", "Sunset Views", "Shopping", "Acropolis", "Santorini Sunsets", "Mykonos Nightlife", "Ancient Ruins", "Mediterranean Cooking", "Olive Oil Tasting"],
-    "Germany": ["Historical Sites", "Beer Tasting", "Castle Tours", "Christmas Markets", "City Tours", "Museums", "Neuschwanstein Castle", "Berlin Wall", "Oktoberfest", "Black Forest", "Romantic Road", "River Cruises"],
-    "default": ["Historical Sites", "Local Cuisine", "Shopping", "Nature & Parks", "Cultural Experiences", "Adventure Activities", "Photography", "Wellness & Spas", "Nightlife", "Family Activities", "Art & Museums", "Beach Relaxation"]
+    "France": ["Wine Tasting", "Art Museums", "Historical Sites", "Gourmet Food", "Shopping", "Romantic Getaways"],
+    "Italy": ["Historical Sites", "Art Museums", "Wine Tasting", "Cooking Classes", "Beach Relaxation", "Shopping"],
+    "Japan": ["Temples & Shrines", "Anime & Manga", "Sushi Making", "Hot Springs", "Cherry Blossoms", "Shopping"],
+    "USA": ["National Parks", "Theme Parks", "Shopping", "Beach Activities", "City Tours", "Food Tours"],
+    "Spain": ["Flamenco Shows", "Beach Relaxation", "Historical Sites", "Tapas Tours", "Shopping", "Nightlife"],
+    "Thailand": ["Temples", "Beach Activities", "Elephant Sanctuaries", "Street Food", "Island Hopping", "Shopping"],
+    "India": ["Historical Monuments", "Yoga & Meditation", "Spiritual Sites", "Local Markets", "Wildlife Safaris", "Food Tours"],
+    "Australia": ["Beach Activities", "Wildlife Viewing", "Wine Tasting", "Outdoor Adventures", "City Tours"],
+    "Greece": ["Historical Sites", "Island Hopping", "Beach Relaxation", "Greek Cuisine", "Sunset Views", "Shopping"],
+    "Germany": ["Historical Sites", "Beer Tasting", "Castle Tours", "Christmas Markets", "City Tours", "Museums"],
+    "default": ["Historical Sites", "Local Cuisine", "Shopping", "Nature & Parks", "Cultural Experiences", "Adventure Activities"]
 };
 
 // Initialize the application
 document.addEventListener('DOMContentLoaded', function() {
+    console.log('DOM loaded, initializing app...');
     checkAuthentication();
-    
-    // Add logout functionality
-    const logoutBtn = document.getElementById('logout-btn');
-    if (logoutBtn) {
-        logoutBtn.addEventListener('click', handleLogout);
-    }
 });
 
 // Authentication check
@@ -96,12 +166,10 @@ function checkAuthentication() {
         .then(response => response.json())
         .then(data => {
             if (!data.authenticated) {
-                // Redirect to welcome page if not authenticated
                 window.location.href = '/';
                 return;
             }
             
-            // User is authenticated, continue with normal initialization
             currentUser = data.user;
             initializeApp(data.user);
         })
@@ -113,25 +181,25 @@ function checkAuthentication() {
 
 // Initialize app with user data
 function initializeApp(user) {
-    console.log('User authenticated:', user);
-    
-    // Update UI with user info
-    const userInfoElement = document.getElementById('user-info');
-    if (userInfoElement) {
-        userInfoElement.textContent = `Welcome, ${user.first_name} ${user.last_name}`;
-    }
+    console.log('Initializing app for user:', user);
     
     // Set current plan from user data
     currentPlan = user.plan || 'free';
+    
+    // Set hidden plan field
+    const planField = document.getElementById('user-plan');
+    if (planField) {
+        planField.value = currentPlan;
+    }
     
     // Update plan-specific features
     updatePlanFeatures(user.plan);
     
     // Initialize form elements
+    initializeDepartureCitySearch();  
     initializeDestinationSearch();
     initializeCurrencySearch();
     initializeTravelerType();
-    initializePlanSelection();
     loadUsageData();
     
     // Set minimum date to today
@@ -149,37 +217,23 @@ function initializeApp(user) {
     // Initialize date validation
     updateEndDateMin();
     
-    // Set default values for better UX
+    // Set default values
     setDefaultValues();
+    
+    console.log('App initialization complete');
 }
 
 // Update plan-specific features
 function updatePlanFeatures(plan) {
-    const proFeatures = document.querySelectorAll('.pro-feature');
-    const freeUsesElement = document.getElementById('usage-counter');
+    const budgetSection = document.getElementById('budget-friendly-section');
+    const usageCounter = document.getElementById('usage-counter');
     
-    if (plan === 'free') {
-        // Show free plan limitations
-        proFeatures.forEach(feature => {
-            feature.style.opacity = '0.6';
-            feature.title = 'Upgrade to Pro to unlock this feature';
-        });
-        
-        // Show usage counter
-        if (freeUsesElement) {
-            freeUsesElement.style.display = 'block';
-        }
+    if (plan === 'pro') {
+        budgetSection.style.display = 'block';
+        usageCounter.style.display = 'none';
     } else {
-        // Enable all features for pro users
-        proFeatures.forEach(feature => {
-            feature.style.opacity = '1';
-            feature.title = '';
-        });
-        
-        // Hide usage counter for pro users
-        if (freeUsesElement) {
-            freeUsesElement.style.display = 'none';
-        }
+        budgetSection.style.display = 'none';
+        usageCounter.style.display = 'block';
     }
 }
 
@@ -197,21 +251,9 @@ async function loadUsageData() {
 
 // Update usage counter
 function updateUsageCounter() {
-    const usageCounter = document.getElementById('usage-counter');
-    const freeUsesSpan = document.getElementById('free-uses-remaining');
-    
-    if (currentPlan === 'free') {
+    const freeUsesSpan = document.getElementById('free-uses-display');
+    if (freeUsesSpan && currentPlan === 'free') {
         freeUsesSpan.textContent = freeUsesRemaining;
-        usageCounter.style.display = 'block';
-    } else {
-        usageCounter.style.display = 'none';
-    }
-}
-
-// Logout handler
-function handleLogout() {
-    if (confirm('Are you sure you want to log out?')) {
-        window.location.href = '/auth/logout';
     }
 }
 
@@ -220,13 +262,6 @@ function setDefaultValues() {
     const defaultTravelerBtn = document.querySelector('.traveler-type .option-btn[data-value="Solo"]');
     if (defaultTravelerBtn) {
         defaultTravelerBtn.click();
-    }
-    
-    // Set default plan based on user's actual plan
-    const defaultPlanValue = currentUser?.plan || 'free';
-    const defaultPlanBtn = document.querySelector(`.traveler-type .option-btn[data-value="${defaultPlanValue}"]`);
-    if (defaultPlanBtn) {
-        defaultPlanBtn.click();
     }
     
     // Set default currency (USD)
@@ -250,50 +285,78 @@ function setDefaultValues() {
 function initializeDestinationSearch() {
     const container = document.getElementById('destinations-container');
     
-    // Add event listener for adding new destinations
     document.getElementById('add-destination').addEventListener('click', function() {
         addDestinationField();
     });
     
-    // Initialize first destination field
     initializeDestinationField(container.children[0]);
 }
 
-function initializeDestinationField(destinationItem) {
-    const searchInput = destinationItem.querySelector('.destination-search');
-    const dropdown = destinationItem.querySelector('.dropdown-options');
-    const hiddenInput = destinationItem.querySelector('.destination-value');
+// Initialize departure city search
+function initializeDepartureCitySearch() {
+    const searchInput = document.getElementById('departure-city-search');
+    const dropdown = document.getElementById('departure-city-options');
+    const hiddenInput = document.getElementById('departure-city');
+    const hiddenCodeInput = document.getElementById('departure-city-code');
     
     searchInput.addEventListener('input', function() {
         const searchTerm = this.value.toLowerCase();
-        const filteredCountries = countries.filter(country => 
-            country.toLowerCase().includes(searchTerm)
+        const filteredAirports = majorAirports.filter(airport => 
+            airport.city.toLowerCase().includes(searchTerm) ||
+            airport.code.toLowerCase().includes(searchTerm) ||
+            airport.country.toLowerCase().includes(searchTerm) ||
+            airport.name.toLowerCase().includes(searchTerm)
         );
         
-        updateDropdown(dropdown, filteredCountries, function(selectedCountry) {
-            searchInput.value = selectedCountry;
-            hiddenInput.value = selectedCountry;
+        updateAirportDropdown(dropdown, filteredAirports, function(selectedAirport) {
+            searchInput.value = `${selectedAirport.city}, ${selectedAirport.country} (${selectedAirport.code})`;
+            hiddenInput.value = `${selectedAirport.city}, ${selectedAirport.country}`;
+            hiddenCodeInput.value = selectedAirport.code;
             dropdown.style.display = 'none';
-            updateInterests();
         });
     });
     
     searchInput.addEventListener('focus', function() {
         if (this.value === '') {
-            updateDropdown(dropdown, countries.slice(0, 10), function(selectedCountry) {
-                searchInput.value = selectedCountry;
-                hiddenInput.value = selectedCountry;
+            const topAirports = majorAirports.slice(0, 10);
+            updateAirportDropdown(dropdown, topAirports, function(selectedAirport) {
+                searchInput.value = `${selectedAirport.city}, ${selectedAirport.country} (${selectedAirport.code})`;
+                hiddenInput.value = `${selectedAirport.city}, ${selectedAirport.country}`;
+                hiddenCodeInput.value = selectedAirport.code;
                 dropdown.style.display = 'none';
-                updateInterests();
             });
         }
     });
     
     document.addEventListener('click', function(e) {
-        if (!destinationItem.contains(e.target)) {
+        if (!searchInput.parentElement.contains(e.target)) {
             dropdown.style.display = 'none';
         }
     });
+}
+
+function updateAirportDropdown(dropdown, airports, onSelect) {
+    dropdown.innerHTML = '';
+    
+    if (airports.length === 0) {
+        dropdown.style.display = 'none';
+        return;
+    }
+    
+    airports.forEach(airport => {
+        const option = document.createElement('div');
+        option.className = 'dropdown-option';
+        option.innerHTML = `
+            <strong>${airport.city}, ${airport.country}</strong> 
+            <span style="color: #666; font-size: 0.9em;">(${airport.code}) - ${airport.name}</span>
+        `;
+        option.addEventListener('click', function() {
+            onSelect(airport);
+        });
+        dropdown.appendChild(option);
+    });
+    
+    dropdown.style.display = 'block';
 }
 
 function addDestinationField() {
@@ -309,23 +372,66 @@ function addDestinationField() {
     newDestination.className = 'destination-item';
     newDestination.innerHTML = `
         <div class="searchable-select">
-            <input type="text" class="search-input destination-search" placeholder="Type to search countries...">
+            <input type="text" class="search-input destination-search" 
+                   placeholder="Type city or airport code...">
             <div class="dropdown-options" id="destination-options-${destinationCount}"></div>
         </div>
         <input type="hidden" class="destination-value">
+        <input type="hidden" class="destination-code">
         <button type="button" class="remove-destination">✕</button>
     `;
     
     container.appendChild(newDestination);
-    
-    // Initialize the new field
     initializeDestinationField(newDestination);
     
-    // Add remove functionality
     newDestination.querySelector('.remove-destination').addEventListener('click', function() {
         if (container.children.length > 1) {
             container.removeChild(newDestination);
             updateInterests();
+        }
+    });
+}
+
+function initializeDestinationField(destinationItem) {
+    const searchInput = destinationItem.querySelector('.destination-search');
+    const dropdown = destinationItem.querySelector('.dropdown-options');
+    const hiddenInput = destinationItem.querySelector('.destination-value');
+    const hiddenCodeInput = destinationItem.querySelector('.destination-code');
+    
+    searchInput.addEventListener('input', function() {
+        const searchTerm = this.value.toLowerCase();
+        const filteredAirports = majorAirports.filter(airport => 
+            airport.city.toLowerCase().includes(searchTerm) ||
+            airport.code.toLowerCase().includes(searchTerm) ||
+            airport.country.toLowerCase().includes(searchTerm) ||
+            airport.name.toLowerCase().includes(searchTerm)
+        );
+        
+        updateAirportDropdown(dropdown, filteredAirports, function(selectedAirport) {
+            searchInput.value = `${selectedAirport.city}, ${selectedAirport.country} (${selectedAirport.code})`;
+            hiddenInput.value = `${selectedAirport.city}, ${selectedAirport.country}`;
+            hiddenCodeInput.value = selectedAirport.code;
+            dropdown.style.display = 'none';
+            updateInterests(); // Refresh interests for all destinations
+        });
+    });
+    
+    searchInput.addEventListener('focus', function() {
+        if (this.value === '') {
+            const topAirports = majorAirports.slice(0, 10);
+            updateAirportDropdown(dropdown, topAirports, function(selectedAirport) {
+                searchInput.value = `${selectedAirport.city}, ${selectedAirport.country} (${selectedAirport.code})`;
+                hiddenInput.value = `${selectedAirport.city}, ${selectedAirport.country}`;
+                hiddenCodeInput.value = selectedAirport.code;
+                dropdown.style.display = 'none';
+                updateInterests();
+            });
+        }
+    });
+    
+    document.addEventListener('click', function(e) {
+        if (!destinationItem.contains(e.target)) {
+            dropdown.style.display = 'none';
         }
     });
 }
@@ -424,85 +530,125 @@ function initializeTravelerType() {
     });
 }
 
-// Plan selection
-function initializePlanSelection() {
-    const planBtns = document.querySelectorAll('.traveler-type .option-btn[data-value]');
-    
-    planBtns.forEach(btn => {
-        btn.addEventListener('click', function() {
-            const selectedPlan = this.getAttribute('data-value');
-            
-            // Update plan selection
-            planBtns.forEach(b => b.classList.remove('selected'));
-            this.classList.add('selected');
-            document.getElementById('user-plan').value = selectedPlan;
-            currentPlan = selectedPlan;
-            
-            console.log(`Selected plan: ${selectedPlan}`);
-            
-            // Show/hide budget friendly option
-            const budgetSection = document.getElementById('budget-friendly-section');
-            if (selectedPlan === 'pro') {
-                budgetSection.style.display = 'block';
-            } else {
-                budgetSection.style.display = 'none';
-                document.getElementById('budget-friendly').checked = false;
-            }
-            
-            updateUsageCounter();
-        });
-    });
-}
-
-// Update interests based on selected destinations
+// Update interests based on selected destinations with SEPARATE interest groups
 async function updateInterests() {
     const interestsContainer = document.getElementById('interests-container');
-    const destinations = Array.from(document.querySelectorAll('.destination-value'))
-        .map(input => input.value)
-        .filter(value => value);
+    const destinationItems = document.querySelectorAll('.destination-item');
     
-    let availableInterests = new Set();
+    const destinations = Array.from(destinationItems)
+        .map(item => ({
+            name: item.querySelector('.destination-value').value.trim(),
+            code: item.querySelector('.destination-code').value.trim()
+        }))
+        .filter(dest => dest.name && dest.code);
     
-    // If we have destinations, try to get AI-suggested interests
-    if (destinations.length > 0) {
-        try {
-            const aiInterests = await getAIInterests(destinations);
-            aiInterests.forEach(interest => availableInterests.add(interest));
-        } catch (error) {
-            console.log('Using fallback interests:', error);
-            // Fallback to static interests if AI fails
-            destinations.forEach(destination => {
-                const interests = countryInterests[destination] || countryInterests.default;
-                interests.forEach(interest => availableInterests.add(interest));
-            });
-        }
-    } else {
-        // If no destinations selected, show default interests
-        countryInterests.default.forEach(interest => availableInterests.add(interest));
+    console.log('Updating interests for destinations:', destinations);
+    
+    // Show skeleton loading state
+    interestsContainer.innerHTML = '';
+    interestsContainer.classList.remove('interests-loaded');
+    
+    // Create skeleton items
+    for (let i = 0; i < 8; i++) {
+        const skeleton = document.createElement('div');
+        skeleton.className = 'skeleton-interest';
+        skeleton.innerHTML = `
+            <div class="skeleton-interest-checkbox"></div>
+            <div class="skeleton-interest-text"></div>
+        `;
+        interestsContainer.appendChild(skeleton);
     }
     
+    // Add 2-second delay
+    await new Promise(resolve => setTimeout(resolve, 2000));
+    
+    // Clear skeleton
     interestsContainer.innerHTML = '';
-    Array.from(availableInterests).forEach(interest => {
-        const option = document.createElement('div');
-        option.className = 'checkbox-option';
-        option.innerHTML = `
-            <input type="checkbox" value="${interest}">
-            <span>${interest}</span>
-        `;
+    interestsContainer.classList.add('interests-loaded');
+    
+    if (destinations.length === 0) {
+        interestsContainer.innerHTML = '<p style="text-align: center; color: #666;">No interests available. Please select a destination.</p>';
+        return;
+    }
+    
+    // Create SEPARATE interest sections for each destination
+    for (const destination of destinations) {
+        const city = destination.name.split(',')[0].trim(); // Extract city name
         
-        option.addEventListener('click', function() {
-            this.classList.toggle('selected');
-            const checkbox = this.querySelector('input');
-            checkbox.checked = !checkbox.checked;
-            updateSelectedInterests();
+        // Create destination section wrapper
+        const destSection = document.createElement('div');
+        destSection.className = 'destination-section';
+        
+        // Create destination header
+        const destHeader = document.createElement('div');
+        destHeader.className = 'destination-interests-header';
+        destHeader.innerHTML = `
+            <h4>
+                📍 ${city} (${destination.code})
+            </h4>
+        `;
+        destSection.appendChild(destHeader);
+        
+        // Get interests for this destination
+        let availableInterests = [];
+        
+        try {
+            // Try AI first for Pro users
+            if (currentPlan === 'pro') {
+                const aiInterests = await getAIInterestsForCity(city, destination.code);
+                availableInterests = aiInterests;
+            }
+        } catch (error) {
+            console.log('Using fallback interests for', city);
+        }
+        
+        // Fallback to city-specific or country interests
+        if (availableInterests.length === 0) {
+            const country = destination.name.split(',')[1]?.trim();
+            availableInterests = cityInterests[city] || 
+                                countryInterests[country] || 
+                                countryInterests.default;
+            availableInterests = availableInterests.slice(0, 12);
+        }
+        
+        // Create interest options for this destination
+        const destInterestsContainer = document.createElement('div');
+        destInterestsContainer.className = 'destination-interests-group';
+        
+        availableInterests.forEach(interest => {
+            const option = document.createElement('div');
+            option.className = 'checkbox-option';
+            option.dataset.destination = destination.code;
+            option.innerHTML = `
+                <input type="checkbox" value="${interest.replace(/\s*[^\w\s]+\s*$/, '').trim()}" 
+                       data-destination="${destination.code}">
+                <span>${interest}</span>
+            `;
+            
+            option.addEventListener('click', function(e) {
+                if (e.target.tagName !== 'INPUT') {
+                    this.classList.toggle('selected');
+                    const checkbox = this.querySelector('input');
+                    checkbox.checked = !checkbox.checked;
+                    updateSelectedInterests();
+                } else {
+                    this.classList.toggle('selected');
+                    updateSelectedInterests();
+                }
+            });
+            
+            destInterestsContainer.appendChild(option);
         });
         
-        interestsContainer.appendChild(option);
-    });
+        destSection.appendChild(destInterestsContainer);
+        interestsContainer.appendChild(destSection);
+    }
+    
+    console.log('Separate interests displayed for each destination');
 }
 
-// Get AI-suggested interests based on destinations
-async function getAIInterests(destinations) {
+// New helper function to get AI interests for specific city
+async function getAIInterestsForCity(city, code) {
     try {
         const response = await fetch('/get-ai-interests', {
             method: 'POST',
@@ -510,7 +656,8 @@ async function getAIInterests(destinations) {
                 'Content-Type': 'application/json',
             },
             body: JSON.stringify({
-                destinations: destinations
+                destinations: [city],
+                airportCode: code
             })
         });
         
@@ -521,14 +668,18 @@ async function getAIInterests(destinations) {
         const data = await response.json();
         return data.interests || [];
     } catch (error) {
-        console.error('Error getting AI interests:', error);
+        console.error('Error getting AI interests for', city, error);
         throw error;
     }
 }
 
 function updateSelectedInterests() {
     const selectedInterests = Array.from(document.querySelectorAll('.checkbox-option.selected'))
-        .map(option => option.querySelector('input').value);
+        .map(option => {
+            const value = option.querySelector('input').value;
+            // Strip emoji from the end if present
+            return value.replace(/\s*[^\w\s]+\s*$/, '').trim();
+        });
     
     document.getElementById('interests').value = selectedInterests.join(', ');
 }
@@ -541,48 +692,58 @@ function updateEndDateMin() {
     }
 }
 
-// Form submission handler with authentication check
+// Form submission handler
 async function handleFormSubmit(e) {
     e.preventDefault();
     
-    console.log('Form submission started...');
-    
-    // Check authentication first
-    const authCheck = await fetch('/auth/check');
-    const authData = await authCheck.json();
-    
-    if (!authData.authenticated) {
-        alert('Please log in to generate itineraries');
-        window.location.href = '/';
-        return;
-    }
-    
-    // Check free plan usage
-    if (authData.user.plan === 'free') {
-        const usageCheck = await fetch('/get-usage');
-        const usageData = await usageCheck.json();
-        
-        if (usageData.free_uses_remaining <= 0) {
-            alert('You have reached your daily limit of 3 free itineraries. Please upgrade to Pro for unlimited access.');
-            return;
-        }
-    }
-    
-    // Validate form
-    if (!validateForm()) {
-        return;
-    }
-    
-    // Show loading section
-    document.getElementById('form-section').style.display = 'none';
-    document.getElementById('loading-section').style.display = 'block';
-    document.getElementById('result-section').style.display = 'none';
+    console.log('✅ handleFormSubmit called');
+    console.log('Step 1: Checking authentication...');
     
     try {
+        // Check authentication first
+        const authCheck = await fetch('/auth/check');
+        console.log('Auth response status:', authCheck.status);
+        const authData = await authCheck.json();
+        console.log('Auth data:', authData);
+        
+        if (!authData.authenticated) {
+            alert('Please log in to generate itineraries');
+            window.location.href = '/';
+            return;
+        }
+        
+        console.log('Step 2: Checking usage limits...');
+        // Check free plan usage
+        if (authData.user.plan === 'free') {
+            const usageCheck = await fetch('/get-usage');
+            const usageData = await usageCheck.json();
+            console.log('Usage data:', usageData);
+            
+            if (usageData.free_uses_remaining <= 0) {
+                alert('You have reached your daily limit of 3 free itineraries. Please upgrade to Pro for unlimited access.');
+                return;
+            }
+        }
+        
+        console.log('Step 3: Validating form...');
+        // Validate form
+        if (!validateForm()) {
+            console.log('❌ Form validation failed');
+            return;
+        }
+        
+        console.log('Step 4: Showing loading screen...');
+        // Show loading section
+        document.getElementById('form-section').style.display = 'none';
+        document.getElementById('loading-section').style.display = 'block';
+        document.getElementById('result-section').style.display = 'none';
+        
+        console.log('Step 5: Getting form data...');
         // Get form data and send to backend
         const formData = getFormData();
-        console.log('Sending form data to backend:', formData);
+        console.log('Form data:', formData);
         
+        console.log('Step 6: Sending to backend...');
         const response = await fetch('/generate-itinerary', {
             method: 'POST',
             headers: {
@@ -591,25 +752,31 @@ async function handleFormSubmit(e) {
             body: JSON.stringify(formData)
         });
         
+        console.log('Response status:', response.status);
         const result = await response.json();
+        console.log('Result:', result);
         
         if (!response.ok) {
             throw new Error(result.error || `Server error: ${response.status}`);
         }
         
         if (result.success) {
+            console.log('✅ Success! Displaying itinerary...');
             // Update usage counter
             freeUsesRemaining = result.free_uses_remaining;
             updateUsageCounter();
             
             // Display the AI-generated itinerary
             displayItinerary(result.itinerary, formData);
+            
+            // Search and display flights - ADD THIS
+            searchAndDisplayFlights(formData);
         } else {
             throw new Error(result.error || 'Failed to generate itinerary');
         }
         
     } catch (error) {
-        console.error('Error generating itinerary:', error);
+        console.error('❌ Error generating itinerary:', error);
         alert('Failed to generate itinerary: ' + error.message);
         // Show form again on error
         document.getElementById('loading-section').style.display = 'none';
@@ -623,16 +790,35 @@ function validateForm() {
     
     // Check user name
     const userName = document.getElementById('user-name');
-    if (!userName.value.trim()) {
+    if (!userName) {
+        console.error('❌ user-name field not found');
+        alert('Form error: Name field not found');
+        return false;
+    }
+    if (!userName.value || !userName.value.trim()) {
         alert('Please enter your name');
         userName.focus();
         return false;
     }
+    console.log('✅ User name valid:', userName.value);
+
+    // Check departure city - ADD THIS
+    const departureCity = document.getElementById('departure-city');
+    if (!departureCity || !departureCity.value) {
+        alert('Please select your departure city');
+        document.getElementById('departure-city-search').focus();
+        return false;
+    }
     
     // Check destinations
-    const destinations = Array.from(document.querySelectorAll('.destination-value'))
+    const destinationInputs = document.querySelectorAll('.destination-value');
+    console.log('Found destination inputs:', destinationInputs.length);
+    
+    const destinations = Array.from(destinationInputs)
         .map(input => input.value)
-        .filter(value => value);
+        .filter(value => value && value.trim());
+    
+    console.log('Valid destinations:', destinations);
     
     if (destinations.length === 0) {
         alert('Please select at least one destination');
@@ -643,17 +829,19 @@ function validateForm() {
     const startDate = document.getElementById('start-date');
     const endDate = document.getElementById('end-date');
     
-    if (!startDate.value) {
+    if (!startDate || !startDate.value) {
         alert('Please select a start date');
-        startDate.focus();
+        if (startDate) startDate.focus();
         return false;
     }
+    console.log('✅ Start date valid:', startDate.value);
     
-    if (!endDate.value) {
+    if (!endDate || !endDate.value) {
         alert('Please select an end date');
-        endDate.focus();
+        if (endDate) endDate.focus();
         return false;
     }
+    console.log('✅ End date valid:', endDate.value);
     
     // Check date validity
     const start = new Date(startDate.value);
@@ -666,46 +854,69 @@ function validateForm() {
     
     // Check traveler type
     const travelerType = document.getElementById('traveler-type');
-    if (!travelerType.value) {
+    if (!travelerType || !travelerType.value) {
         alert('Please select a traveler type');
         return false;
     }
+    console.log('✅ Traveler type valid:', travelerType.value);
     
     // Check currency
     const currency = document.getElementById('currency');
-    if (!currency.value) {
+    if (!currency || !currency.value) {
         alert('Please select a currency');
         return false;
     }
+    console.log('✅ Currency valid:', currency.value);
     
     // Check budget amount
     const budgetAmount = document.getElementById('budget-amount');
-    if (!budgetAmount.value || budgetAmount.value <= 0) {
+    if (!budgetAmount || !budgetAmount.value || parseFloat(budgetAmount.value) <= 0) {
         alert('Please enter a valid budget amount');
-        budgetAmount.focus();
+        if (budgetAmount) budgetAmount.focus();
         return false;
     }
+    console.log('✅ Budget valid:', budgetAmount.value);
     
-    console.log('Form validation passed!');
+    console.log('✅ Form validation passed!');
     return true;
 }
 
+// In index.js - Update the getFormData function to ensure traveler type is properly sent
 function getFormData() {
-    const destinations = Array.from(document.querySelectorAll('.destination-value'))
-        .map(input => input.value)
-        .filter(value => value);
+    const destinationItems = document.querySelectorAll('.destination-item');
+    const destinations = [];
+    const destinationCodes = [];
+    
+    destinationItems.forEach(item => {
+        const name = item.querySelector('.destination-value').value;
+        const code = item.querySelector('.destination-code').value;
+        if (name && code) {
+            destinations.push(name);
+            destinationCodes.push(code);
+        }
+    });
     
     const interests = Array.from(document.querySelectorAll('.checkbox-option.selected'))
         .map(option => option.querySelector('input').value);
     
+    const planField = document.getElementById('user-plan');
+    const budgetFriendlyCheckbox = document.getElementById('budget-friendly');
+    
+    // Get traveler type - ensure it's properly captured
+    const travelerType = document.getElementById('traveler-type').value;
+    console.log('📝 Traveler type being sent:', travelerType);
+    
     return {
         userName: document.getElementById('user-name').value,
-        plan: document.getElementById('user-plan').value,
-        budgetFriendly: document.getElementById('budget-friendly').checked,
+        plan: planField ? planField.value : currentPlan,
+        budgetFriendly: budgetFriendlyCheckbox ? budgetFriendlyCheckbox.checked : false,
+        departureCity: document.getElementById('departure-city').value,
+        departureCityCode: document.getElementById('departure-city-code').value,
         destinations: destinations,
+        destinationCodes: destinationCodes,
         startDate: document.getElementById('start-date').value,
         endDate: document.getElementById('end-date').value,
-        travelerType: document.getElementById('traveler-type').value,
+        travelerType: travelerType, // This should now be properly captured
         interests: interests.join(', '),
         currency: document.getElementById('currency').value,
         currencySymbol: document.getElementById('currency-symbol').value,
@@ -824,7 +1035,6 @@ function createActivitiesHTML(activities, plan) {
     }
     
     if (plan === 'pro' && activities[0] && typeof activities[0] === 'object') {
-        // Pro format with activity objects
         let activitiesHTML = '<div class="pro-activities"><h4>Daily Activities:</h4>';
         activities.forEach(activity => {
             activitiesHTML += `
@@ -846,7 +1056,6 @@ function createActivitiesHTML(activities, plan) {
         activitiesHTML += '</div>';
         return activitiesHTML;
     } else {
-        // Free format with string arrays
         let activitiesHTML = '<div class="activities-section"><h4>Daily Activities:</h4><ul class="activities-list">';
         activities.forEach(activity => {
             if (typeof activity === 'string') {
@@ -891,7 +1100,6 @@ function generateTripSummary(itinerary, formData) {
     if (itinerary.summary) {
         summaryText.textContent = itinerary.summary;
     } else {
-        // Fallback summary
         const startDate = new Date(formData.startDate);
         const endDate = new Date(formData.endDate);
         const duration = Math.ceil((endDate - startDate) / (1000 * 60 * 60 * 24)) + 1;
@@ -904,29 +1112,23 @@ function downloadPDF() {
     const { jsPDF } = window.jspdf;
     const doc = new jsPDF();
     
-    // Get form data
     const userName = document.getElementById('user-name').value || 'Traveler';
     const destinations = Array.from(document.querySelectorAll('.destination-value'))
         .map(input => input.value)
         .filter(value => value);
     const startDate = document.getElementById('start-date').value;
     const endDate = document.getElementById('end-date').value;
-    const travelerType = document.getElementById('traveler-type').value;
     const budget = document.getElementById('budget-amount').value;
     const currencySymbol = document.getElementById('currency-symbol').value;
     
-    // Calculate duration
     const start = new Date(startDate);
     const end = new Date(endDate);
     const duration = Math.ceil((end - start) / (1000 * 60 * 60 * 24)) + 1;
     
-    // Set PDF properties
     doc.setProperties({
         title: `TripStar Itinerary - ${destinations.join(', ')}`,
         subject: 'AI-Generated Travel Itinerary',
-        author: 'TripStar AI',
-        keywords: 'travel, itinerary, ai, planning',
-        creator: 'TripStar AI'
+        author: 'TripStar AI'
     });
     
     const pageWidth = doc.internal.pageSize.width;
@@ -935,29 +1137,22 @@ function downloadPDF() {
     const contentWidth = pageWidth - (2 * margin);
     
     let currentPage = 1;
-    
-    // ===== PAGE 1 - COVER PAGE =====
     let yPosition = 25;
     
-    // Globe icon (simple circle)
+    // Header
     doc.setFillColor(70, 130, 180);
     doc.circle(23, 20, 3, 'F');
-    
-    // TripStar AI title
     doc.setTextColor(0, 0, 0);
     doc.setFontSize(22);
     doc.setFont('helvetica', 'bold');
     doc.text('TripStar AI', 30, 23);
     
-    // Subtitle
     doc.setFontSize(9);
     doc.setFont('helvetica', 'normal');
     doc.setTextColor(100, 100, 100);
-    doc.text('Smart AI-Powered Itinerary Generator for Travel Professionals', margin, 32);
+    doc.text('Smart AI-Powered Itinerary Generator', margin, 32);
     
     yPosition = 50;
-    
-    // Main title with destination
     doc.setFontSize(20);
     doc.setFont('helvetica', 'bold');
     doc.setTextColor(0, 0, 0);
@@ -965,12 +1160,9 @@ function downloadPDF() {
     
     yPosition = 70;
     
-    // Get all day cards
     const dayCards = document.querySelectorAll('.day-card');
     
-    // ===== PROCESS EACH DAY =====
     dayCards.forEach((dayCard, dayIndex) => {
-        // Check if we need a new page
         if (yPosition > 210) {
             addFooter(doc, currentPage);
             doc.addPage();
@@ -980,9 +1172,8 @@ function downloadPDF() {
         
         const dayHeader = cleanText(dayCard.querySelector('.day-header')?.textContent || `Day ${dayIndex + 1}`);
         const dayTitle = cleanText(dayCard.querySelector('h3')?.textContent || `Day ${dayIndex + 1} Activities`);
-        const dayDesc = cleanText(dayCard.querySelector('p')?.textContent || 'Daily activities and exploration.');
+        const dayDesc = cleanText(dayCard.querySelector('p')?.textContent || 'Daily activities.');
         
-        // Calendar icon (simple box)
         doc.setFillColor(240, 240, 240);
         doc.roundedRect(margin, yPosition - 3.5, 6, 6, 1, 1, 'F');
         doc.setFillColor(0, 0, 0);
@@ -990,16 +1181,13 @@ function downloadPDF() {
         doc.setFont('helvetica', 'bold');
         doc.text('D', margin + 2, yPosition + 1.5);
         
-        // Day header
         doc.setFontSize(11);
         doc.setFont('helvetica', 'bold');
         doc.setTextColor(0, 0, 0);
         doc.text(dayHeader, margin + 9, yPosition + 1);
         yPosition += 10;
         
-        // Day title
         doc.setFontSize(13);
-        doc.setFont('helvetica', 'bold');
         const dayTitleLines = doc.splitTextToSize(dayTitle, contentWidth);
         dayTitleLines.forEach(line => {
             if (yPosition > 265) {
@@ -1014,45 +1202,33 @@ function downloadPDF() {
         
         yPosition += 2;
         
-        // Overview section
         doc.setFontSize(9);
         doc.setFont('helvetica', 'bold');
         const overviewLabel = 'Overview: ';
-        const overviewLabelWidth = doc.getTextWidth(overviewLabel);
         doc.text(overviewLabel, margin, yPosition);
         
-        // Overview description
         doc.setFont('helvetica', 'normal');
         const overviewText = dayDesc.replace(/^Overview:\s*/i, '');
         const overviewLines = doc.splitTextToSize(overviewText, contentWidth);
         
-        // First line continues after "Overview:"
-        const firstLineWidth = contentWidth - overviewLabelWidth;
-        const firstLinePart = doc.splitTextToSize(overviewLines[0], firstLineWidth);
-        doc.text(firstLinePart[0], margin + overviewLabelWidth, yPosition);
-        yPosition += 4.5;
-        
-        // Remaining overview text
-        for (let i = 1; i < overviewLines.length; i++) {
+        overviewLines.forEach((line, idx) => {
             if (yPosition > 265) {
                 addFooter(doc, currentPage);
                 doc.addPage();
                 currentPage++;
                 yPosition = 25;
             }
-            doc.text(overviewLines[i], margin, yPosition);
+            doc.text(line, margin + (idx === 0 ? doc.getTextWidth(overviewLabel) : 0), yPosition);
             yPosition += 4.5;
-        }
+        });
         
         yPosition += 4;
         
-        // Daily Activities header
         doc.setFontSize(9);
         doc.setFont('helvetica', 'bold');
         doc.text('Daily Activities:', margin, yPosition);
         yPosition += 6;
         
-        // Activities with checkmarks
         const activities = dayCard.querySelectorAll('.activity-item, .pro-activity-item');
         doc.setFontSize(9);
         doc.setFont('helvetica', 'normal');
@@ -1066,17 +1242,9 @@ function downloadPDF() {
             }
             
             let activityText = cleanText(activity.textContent);
-            if (activity.classList.contains('pro-activity-item')) {
-                const time = cleanText(activity.querySelector('.activity-time')?.textContent || '');
-                const desc = cleanText(activity.querySelector('.activity-desc')?.textContent || '');
-                activityText = `${time} ${desc}`;
-            }
             
-            // Checkmark symbol
-            doc.setFont('helvetica', 'normal');
             doc.text("✓", margin, yPosition);
             
-            // Activity text with proper wrapping
             const activityLines = doc.splitTextToSize(activityText, contentWidth - 6);
             activityLines.forEach((line, lineIndex) => {
                 if (yPosition > 265 && lineIndex > 0) {
@@ -1095,7 +1263,6 @@ function downloadPDF() {
         
         yPosition += 2;
         
-        // Travel Tip section
         const dayTip = cleanText(dayCard.querySelector('.pro-section p')?.textContent || '');
         if (dayTip) {
             if (yPosition > 240) {
@@ -1105,7 +1272,6 @@ function downloadPDF() {
                 yPosition = 25;
             }
             
-            // Light bulb icon (simple circle)
             doc.setFillColor(255, 215, 0);
             doc.circle(margin + 3, yPosition + 1, 2.5, 'F');
             
@@ -1115,8 +1281,6 @@ function downloadPDF() {
             doc.text('!', margin + 2.5, yPosition + 2.5);
             
             doc.setFontSize(10);
-            doc.setFont('helvetica', 'bold');
-            doc.setTextColor(0, 0, 0);
             doc.text('Travel Tip', margin + 8, yPosition + 2.5);
             
             yPosition += 8;
@@ -1141,7 +1305,6 @@ function downloadPDF() {
         }
     });
     
-    // ===== TRENDING DESTINATIONS SECTION =====
     if (yPosition > 170) {
         addFooter(doc, currentPage);
         doc.addPage();
@@ -1149,17 +1312,15 @@ function downloadPDF() {
         yPosition = 25;
     }
     
-    // Fire icon (simple)
     doc.setFillColor(255, 100, 0);
     doc.circle(margin + 3, yPosition + 1.5, 2.5, 'F');
     
     doc.setFontSize(13);
     doc.setFont('helvetica', 'bold');
     doc.setTextColor(0, 0, 0);
-    doc.text('Currently Trending in Your Destinations', margin + 9, yPosition + 2.5);
+    doc.text('Currently Trending', margin + 9, yPosition + 2.5);
     yPosition += 12;
     
-    // Trending spots
     const spotCards = document.querySelectorAll('.spot-card');
     spotCards.forEach((spotCard, index) => {
         if (yPosition > 240) {
@@ -1170,15 +1331,13 @@ function downloadPDF() {
         }
         
         const spotName = cleanText(spotCard.querySelector('h4')?.textContent || `Popular Spot ${index + 1}`);
-        const spotDesc = cleanText(spotCard.querySelector('p')?.textContent || 'Explore this popular destination.');
+        const spotDesc = cleanText(spotCard.querySelector('p')?.textContent || 'Explore this destination.');
         
-        // Spot name
         doc.setFontSize(11);
         doc.setFont('helvetica', 'bold');
         doc.text(spotName, margin, yPosition);
         yPosition += 6;
         
-        // Spot description
         doc.setFontSize(9);
         doc.setFont('helvetica', 'normal');
         const descLines = doc.splitTextToSize(spotDesc, contentWidth);
@@ -1196,7 +1355,6 @@ function downloadPDF() {
         yPosition += 7;
     });
     
-    // ===== TRIP SUMMARY SECTION =====
     if (yPosition > 220) {
         addFooter(doc, currentPage);
         doc.addPage();
@@ -1204,12 +1362,8 @@ function downloadPDF() {
         yPosition = 25;
     }
     
-    // Clipboard icon (simple box)
     doc.setFillColor(200, 200, 200);
     doc.roundedRect(margin, yPosition - 2, 5, 6, 1, 1, 'F');
-    doc.setFillColor(0, 0, 0);
-    doc.setFontSize(7);
-    doc.text('S', margin + 1.5, yPosition + 2);
     
     doc.setFontSize(13);
     doc.setFont('helvetica', 'bold');
@@ -1217,10 +1371,8 @@ function downloadPDF() {
     doc.text('Trip Summary', margin + 8, yPosition + 2);
     yPosition += 10;
     
-    // Summary text
     const summaryElement = document.getElementById('summary-text');
-    const summaryText = cleanText(summaryElement?.textContent || 
-        `This carefully curated ${duration}-day journey through ${destinations[0]} is designed for ${travelerType.toLowerCase()} travelers with a ${currencySymbol}${parseFloat(budget).toLocaleString()} budget. Experience an authentic blend of culture, cuisine, and adventure.`);
+    const summaryText = cleanText(summaryElement?.textContent || 'Enjoy your journey!');
     
     doc.setFontSize(9);
     doc.setFont('helvetica', 'normal');
@@ -1236,15 +1388,12 @@ function downloadPDF() {
         yPosition += 4.5;
     });
     
-    // Add footer to last page
     addFooter(doc, currentPage);
     
-    // Save the PDF
     const filename = `tripstar-itinerary-${destinations[0]?.toLowerCase().replace(/\s+/g, '-') || 'trip'}.pdf`;
     doc.save(filename);
 }
 
-// Helper function to clean text
 function cleanText(text) {
     if (!text) return '';
     return text
@@ -1254,7 +1403,6 @@ function cleanText(text) {
         .trim();
 }
 
-// Helper function to add consistent footer
 function addFooter(doc, pageNumber) {
     const pageWidth = doc.internal.pageSize.width;
     const pageHeight = doc.internal.pageSize.height;
@@ -1267,83 +1415,195 @@ function addFooter(doc, pageNumber) {
     
     const year = new Date().getFullYear();
     
-    // Left text
-    doc.text(`© ${year} TripStar AI. All rights reserved.`, margin, footerY, { align: 'left' });
-    
-    // Center text
-    doc.text('Smart AI-Powered Itinerary Generator for Travel Professionals', pageWidth / 2, footerY, { align: 'center' });
-    
-    // Right text
+    doc.text(`© ${year} TripStar AI`, margin, footerY, { align: 'left' });
+    doc.text('Smart AI-Powered Itinerary Generator', pageWidth / 2, footerY, { align: 'center' });
     doc.text(`Page ${pageNumber}`, pageWidth - margin, footerY, { align: 'right' });
 }
 
-// WhatsApp Share functionality
 function shareViaWhatsApp() {
     if (currentPlan === 'free') {
-        alert('WhatsApp sharing is available for Pro users only. Upgrade to share your itinerary.');
+        alert('WhatsApp sharing is available for Pro users only.');
         return;
     }
     
-    const itineraryText = `Check out my TripStar AI itinerary for ${Array.from(document.querySelectorAll('.destination-value')).map(input => input.value).join(', ')}!`;
+    const itineraryText = `Check out my TripStar AI itinerary!`;
     const encodedText = encodeURIComponent(itineraryText);
     const whatsappUrl = `https://wa.me/?text=${encodedText}`;
     
     window.open(whatsappUrl, '_blank');
 }
 
-// Reset form for new itinerary
 function resetForm() {
     document.getElementById('result-section').style.display = 'none';
     document.getElementById('form-section').style.display = 'block';
     
-    // Reset form fields
     document.getElementById('itinerary-form').reset();
     
-    // Reset destination fields to just one
     const destinationsContainer = document.getElementById('destinations-container');
     while (destinationsContainer.children.length > 1) {
         destinationsContainer.removeChild(destinationsContainer.lastChild);
     }
     
-    // Reset traveler type and plan selection
     document.querySelectorAll('.option-btn').forEach(btn => btn.classList.remove('selected'));
     document.querySelector('.traveler-type .option-btn[data-value="Solo"]')?.classList.add('selected');
-    
-    // Set plan based on user's actual plan
-    const userPlan = currentUser?.plan || 'free';
-    document.querySelector(`.traveler-type .option-btn[data-value="${userPlan}"]`)?.classList.add('selected');
     document.getElementById('traveler-type').value = 'Solo';
-    document.getElementById('user-plan').value = userPlan;
     
-    // Reset budget friendly section
-    document.getElementById('budget-friendly-section').style.display = 'none';
+    const planField = document.getElementById('user-plan');
+    if (planField) {
+        planField.value = currentPlan;
+    }
+    
     document.getElementById('budget-friendly').checked = false;
     
-    // Update interests
     updateInterests();
-    
-    // Reload usage data
     loadUsageData();
-    
-    // Reset current plan
-    currentPlan = userPlan;
-    
-    // Set default values again
     setDefaultValues();
 }
 
-// Plan selection function for pricing section
-function selectPlan(plan) {
-    const planBtns = document.querySelectorAll('.traveler-type .option-btn[data-value]');
-    const targetBtn = Array.from(planBtns).find(btn => btn.getAttribute('data-value') === plan);
-    
-    if (targetBtn) {
-        targetBtn.click();
+// Search and display flights
+async function searchAndDisplayFlights(formData) {
+    try {
+        console.log('Searching for flights...');
+        
+        const response = await fetch('/search-flights', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                departure_city: formData.departureCity,
+                destinations: formData.destinations,
+                start_date: formData.startDate,
+                end_date: formData.endDate,
+                budget: formData.budget,
+                currency_symbol: formData.currencySymbol
+            })
+        });
+        
+        const result = await response.json();
+        
+        if (result.success && result.flights) {
+            displayFlightResults(result.flights);
+        }
+        
+    } catch (error) {
+        console.error('Flight search error:', error);
     }
-    
-    // Scroll to form section
-    document.getElementById('form-section')?.scrollIntoView({ behavior: 'smooth' });
 }
 
-// Make functions globally available for HTML onclick handlers
-window.selectPlan = selectPlan;
+function displayFlightResults(flightData) {
+    console.log('📊 Flight data received:', flightData);
+    
+    let flightSection = document.getElementById('flight-results');
+    if (!flightSection) {
+        flightSection = document.createElement('div');
+        flightSection.id = 'flight-results';
+        flightSection.className = 'flight-results-section';
+        const popularSpots = document.getElementById('popular-spots');
+        popularSpots.parentNode.insertBefore(flightSection, popularSpots);
+    }
+    
+    let flightHTML = `
+        <div class="flight-header">
+            <h3>✈️ Recommended Flights</h3>
+            <a href="${flightData.searchLink || 'https://www.google.com/travel/flights'}" target="_blank" class="google-flights-btn">
+                Search Real-time Flights
+            </a>
+        </div>
+    `;
+    
+    if (flightData.flights && Array.isArray(flightData.flights)) {
+        flightData.flights.forEach((flight, index) => {
+            const departure = flight.departureCity || 'Your departure city';
+            const destination = flight.destination || 'Destination';
+            const outboundDate = flight.outboundDate || 'Select date';
+            const segment = flight.segment || `Flight ${index + 1}`;
+            
+            flightHTML += `
+                <div class="flight-destination-card">
+                    <div class="flight-dest-header">
+                        <h4>${segment}: ${departure} → ${destination}</h4>
+                        <span class="flight-date">📅 ${outboundDate}</span>
+                    </div>
+                    
+                    <div class="flight-options">
+            `;
+            
+            if (flight.options && flight.options.length > 0) {
+                flight.options.forEach(option => {
+                    flightHTML += `
+                        <div class="flight-option-card">
+                            <div class="flight-option-header">
+                                <div>
+                                    <strong>${option.airline || 'Various Airlines'}</strong>
+                                    <span class="flight-number">${option.flightNumber || 'Check availability'}</span>
+                                </div>
+                                <span class="flight-duration">⏱️ ${option.duration || 'Varies'}</span>
+                            </div>
+                            
+                            <div class="flight-details">
+                                <span class="flight-stops">🔄 ${option.stops || 0} stop(s)</span>
+                                ${option.layover && option.layover !== 'None' ? `<span class="flight-layover">via ${option.layover}</span>` : ''}
+                            </div>
+                            
+                            <div class="cabin-classes">
+                    `;
+                    
+                    if (option.cabinClasses) {
+                        Object.entries(option.cabinClasses).forEach(([className, classInfo]) => {
+                            if (classInfo && classInfo.available !== false) {
+                                flightHTML += `
+                                    <div class="cabin-class">
+                                        <span class="class-name">${className.replace(/([A-Z])/g, ' $1').trim()}</span>
+                                        <span class="class-price">${classInfo.price || 'Check price'}</span>
+                                        ${classInfo.seatsLeft ? `<span class="seats-left">${classInfo.seatsLeft} seats</span>` : ''}
+                                    </div>
+                                `;
+                            }
+                        });
+                    }
+                    
+                    flightHTML += `
+                            </div>
+                            
+                            <a href="${option.bookingLink || flightData.searchLink}" target="_blank" class="booking-link-single">
+                                Check Real-time Availability →
+                            </a>
+                            
+                            ${option.moneySavingTips ? `
+                                <div class="flight-tips">
+                                    <strong>💡 Money Saving Tips:</strong>
+                                    <ul>
+                                        ${option.moneySavingTips.map(tip => `<li>${tip}</li>`).join('')}
+                                    </ul>
+                                </div>
+                            ` : ''}
+                        </div>
+                    `;
+                });
+            }
+            
+            flightHTML += `
+                    </div>
+                </div>
+            `;
+        });
+    }
+    
+    // Add general tips
+    flightHTML += `
+        <div class="general-flight-tips">
+            <h4>💡 Smart Booking Tips</h4>
+            <ul>
+                ${(flightData.generalTips || [
+                    'Book multi-city flights as single itinerary for best pricing',
+                    'Compare prices across different booking platforms',
+                    'Be flexible with dates for significant savings',
+                    'Check baggage policies for each airline segment'
+                ]).map(tip => `<li>${tip}</li>`).join('')}
+            </ul>
+        </div>
+    `;
+    
+    flightSection.innerHTML = flightHTML;
+}

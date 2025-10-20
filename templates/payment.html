@@ -33,7 +33,7 @@
             background: white;
             border-radius: 15px;
             box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
-            max-width: 500px;
+            max-width: 600px;
             width: 100%;
             overflow: hidden;
         }
@@ -52,29 +52,6 @@
         
         .payment-body {
             padding: 30px;
-        }
-        
-        .payment-method {
-            margin-bottom: 30px;
-        }
-        
-        .method-option {
-            border: 2px solid var(--border);
-            border-radius: 10px;
-            padding: 20px;
-            margin-bottom: 15px;
-            cursor: pointer;
-            transition: all 0.3s;
-        }
-        
-        .method-option.selected {
-            border-color: var(--primary);
-            background: #f0f9f5;
-        }
-        
-        .method-option h3 {
-            color: var(--secondary);
-            margin-bottom: 10px;
         }
         
         .payment-details {
@@ -104,6 +81,29 @@
             color: var(--primary);
         }
         
+        .qr-section {
+            text-align: center;
+            padding: 30px;
+            background: #f0f9f5;
+            border-radius: 10px;
+            margin-bottom: 20px;
+        }
+        
+        .qr-code-container {
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+            display: inline-block;
+            margin: 20px 0;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+        
+        #qr-code {
+            max-width: 250px;
+            width: 100%;
+            height: auto;
+        }
+        
         .upi-details {
             text-align: center;
             padding: 20px;
@@ -113,7 +113,7 @@
         }
         
         .upi-id {
-            font-size: 1.3rem;
+            font-size: 1.1rem;
             font-weight: bold;
             color: var(--primary);
             margin: 10px 0;
@@ -121,6 +121,28 @@
             background: white;
             border-radius: 5px;
             border: 2px dashed var(--primary);
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+        
+        .upi-id:hover {
+            background: #f0f9f5;
+        }
+        
+        .copy-btn {
+            display: inline-block;
+            margin-left: 10px;
+            padding: 5px 10px;
+            background: var(--primary);
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 0.9rem;
+        }
+        
+        .copy-btn:hover {
+            background: var(--primary-dark);
         }
         
         .btn {
@@ -161,6 +183,11 @@
             border: 1px solid #ffeaa7;
         }
         
+        .manual-verification h3 {
+            margin-bottom: 10px;
+            color: var(--secondary);
+        }
+        
         .manual-verification input {
             width: 100%;
             padding: 10px;
@@ -182,12 +209,54 @@
             text-decoration: none;
             font-weight: 600;
         }
+        
+        .loading {
+            text-align: center;
+            padding: 20px;
+        }
+        
+        .spinner {
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid var(--primary);
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto;
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        
+        .instructions {
+            background: #e3f2fd;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            border-left: 4px solid #2196f3;
+        }
+        
+        .instructions h3 {
+            color: #1976d2;
+            margin-bottom: 10px;
+        }
+        
+        .instructions ol {
+            margin-left: 20px;
+        }
+        
+        .instructions li {
+            margin-bottom: 8px;
+            color: #555;
+        }
     </style>
 </head>
 <body>
     <div class="payment-container">
         <div class="payment-header">
-            <h1>Upgrade to Pro</h1>
+            <h1>🚀 Upgrade to Pro</h1>
             <p>Unlock unlimited AI itineraries and premium features</p>
         </div>
         
@@ -207,43 +276,103 @@
                 </div>
             </div>
             
-            <div class="payment-method">
-                <h3>Select Payment Method</h3>
-                
-                <div class="method-option selected" data-method="upi">
-                    <h3>UPI Payment</h3>
-                    <p>Pay using any UPI app (GPay, PhonePe, Paytm, etc.)</p>
+            <div class="instructions">
+                <h3>📱 How to Pay:</h3>
+                <ol>
+                    <li>Scan the QR code with any UPI app (GPay, PhonePe, Paytm, etc.)</li>
+                    <li>Or manually enter the UPI ID below</li>
+                    <li>Complete the payment of ₹499</li>
+                    <li>Copy your Transaction ID from the payment app</li>
+                    <li>Click "Verify Payment" and enter your Transaction ID</li>
+                </ol>
+            </div>
+            
+            <div class="qr-section" id="qr-section">
+                <div class="loading" id="loading">
+                    <div class="spinner"></div>
+                    <p>Generating QR Code...</p>
+                </div>
+                <div id="qr-content" style="display: none;">
+                    <h3>Scan to Pay</h3>
+                    <div class="qr-code-container">
+                        <img id="qr-code" alt="UPI QR Code">
+                    </div>
+                    <p style="color: #666; margin-top: 10px;">Scan this QR code with any UPI app</p>
                 </div>
             </div>
             
             <div class="upi-details">
-                <h3>Send Payment to:</h3>
-                <div class="upi-id" id="upi-id-display">your-upi@okaxis</div>
+                <h3>Or Pay Manually:</h3>
+                <div class="upi-id" id="upi-id-display" onclick="copyUPI()">
+                    adnanstar786-1@oksbi
+                    <button class="copy-btn" onclick="copyUPI(); event.stopPropagation();">📋 Copy</button>
+                </div>
                 <p>Amount: <strong>₹499</strong></p>
-                <p>After payment, click "Verify Payment" below</p>
             </div>
             
             <button class="btn btn-primary" id="verify-payment">
-                I've Made the Payment - Verify Now
+                ✅ I've Made the Payment - Verify Now
             </button>
             
             <div class="manual-verification">
-                <h3>Manual Verification</h3>
-                <p>If you've made the payment but verification fails, provide your UPI ID:</p>
-                <input type="text" id="manual-upi-id" placeholder="Enter your UPI ID">
+                <h3>⚠️ Payment Not Verified?</h3>
+                <p>If automatic verification fails, provide your UPI ID for manual verification:</p>
+                <input type="text" id="manual-upi-id" placeholder="Enter your UPI ID (e.g., yourname@paytm)">
                 <button class="btn btn-secondary" id="manual-verify">
-                    Submit for Manual Verification
+                    📝 Submit for Manual Verification
                 </button>
             </div>
             
             <div class="contact-info">
-                <p>Need help? Contact us: <a href="mailto:your-email@gmail.com">your-email@gmail.com</a></p>
+                <p>Need help? Contact us: <a href="mailto:adystar67@gmail.com">adystar67@gmail.com</a></p>
             </div>
         </div>
     </div>
 
     <script>
         let paymentId = null;
+        let upiString = null;
+        
+        // Copy UPI ID to clipboard
+        function copyUPI() {
+            const upiId = document.getElementById('upi-id-display').textContent.trim().split('\n')[0];
+            navigator.clipboard.writeText(upiId).then(() => {
+                alert('UPI ID copied to clipboard!');
+            }).catch(err => {
+                console.error('Copy failed:', err);
+            });
+        }
+        
+        // Generate QR code
+        async function generateQRCode() {
+            try {
+                const response = await fetch('/payment/generate-qr', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        plan: 'pro'
+                    })
+                });
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    paymentId = data.payment_id;
+                    upiString = data.upi_string;
+                    
+                    document.getElementById('qr-code').src = data.qr_code;
+                    document.getElementById('loading').style.display = 'none';
+                    document.getElementById('qr-content').style.display = 'block';
+                } else {
+                    document.getElementById('loading').innerHTML = '<p style="color: red;">Failed to generate QR code. Please use manual payment.</p>';
+                }
+            } catch (error) {
+                console.error('QR generation error:', error);
+                document.getElementById('loading').innerHTML = '<p style="color: red;">Failed to generate QR code. Please use manual payment.</p>';
+            }
+        }
         
         // Initialize payment
         async function initializePayment() {
@@ -260,61 +389,83 @@
                 
                 const data = await response.json();
                 
-                if (data.success) {
+                if (data.success && !paymentId) {
                     paymentId = data.payment_id;
-                    document.getElementById('upi-id-display').textContent = data.upi_id;
-                } else {
-                    alert('Failed to initialize payment: ' + data.error);
                 }
             } catch (error) {
                 console.error('Payment initialization error:', error);
-                alert('Payment initialization failed');
             }
         }
         
         // Verify payment
-        document.getElementById('verify-payment').addEventListener('click', async function() {
-            const transactionId = prompt('Please enter your UPI Transaction ID:');
-            
-            if (!transactionId) {
-                alert('Transaction ID is required for verification');
-                return;
-            }
-            
-            try {
-                const response = await fetch('/payment/verify', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                    },
-                    body: JSON.stringify({
-                        payment_id: paymentId,
-                        transaction_id: transactionId
-                    })
-                });
-                
-                const data = await response.json();
-                
-                if (data.success) {
-                    alert('Payment verified successfully! Your account has been upgraded to PRO.');
-                    window.location.href = '/dashboard';
-                } else {
-                    alert('Payment verification failed: ' + data.error);
-                }
-            } catch (error) {
-                console.error('Payment verification error:', error);
-                alert('Payment verification failed');
-            }
+document.getElementById('verify-payment').addEventListener('click', async function() {
+    const transactionId = prompt('Please enter your UPI Transaction ID (12-digit number):');
+    
+    if (!transactionId) {
+        alert('Transaction ID is required for verification');
+        return;
+    }
+    
+    if (transactionId.length < 10) {
+        alert('Please enter a valid Transaction ID');
+        return;
+    }
+    
+    this.disabled = true;
+    this.textContent = 'Verifying...';
+    
+    try {
+        const response = await fetch('/payment/verify', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                payment_id: paymentId,
+                transaction_id: transactionId
+            })
         });
+        
+        const data = await response.json();
+        
+        if (data.success) {
+            // Check if it's actually completed or just pending
+            if (data.pending) {
+                alert('📧 Payment submitted for verification!\n\nWe will verify your payment within 2-4 hours and upgrade your account.\n\nYou will receive an email confirmation once approved.');
+                window.location.href = '/dashboard';
+            } else {
+                alert('🎉 Payment verified successfully! Your account has been upgraded to PRO.');
+                window.location.href = '/dashboard';
+            }
+        } else {
+            alert('❌ Payment verification failed: ' + data.error + '\n\nPlease use manual verification below or contact support.');
+            this.disabled = false;
+            this.textContent = '✅ I\'ve Made the Payment - Verify Now';
+        }
+    } catch (error) {
+        console.error('Payment verification error:', error);
+        alert('❌ Payment verification failed. Please try manual verification below.');
+        this.disabled = false;
+        this.textContent = '✅ I\'ve Made the Payment - Verify Now';
+    }
+});
         
         // Manual verification
         document.getElementById('manual-verify').addEventListener('click', async function() {
-            const upiId = document.getElementById('manual-upi-id').value;
+            const upiId = document.getElementById('manual-upi-id').value.trim();
             
             if (!upiId) {
                 alert('Please enter your UPI ID');
                 return;
             }
+            
+            if (!upiId.includes('@')) {
+                alert('Please enter a valid UPI ID (e.g., yourname@paytm)');
+                return;
+            }
+            
+            this.disabled = true;
+            this.textContent = 'Submitting...';
             
             try {
                 const response = await fetch('/payment/manual-verification', {
@@ -333,22 +484,30 @@
                 
                 if (data.success) {
                     if (data.auto_approved) {
-                        alert('Account upgraded to PRO! You can now generate unlimited itineraries.');
+                        alert('🎉 Account upgraded to PRO! You can now generate unlimited itineraries.');
                         window.location.href = '/dashboard';
                     } else {
-                        alert('Manual verification request submitted. We will verify your payment and upgrade your account within 24 hours. For immediate activation, contact: your-email@gmail.com');
+                        alert('📧 Manual verification request submitted successfully!\n\nWe will verify your payment within 24 hours and upgrade your account.\n\nFor immediate assistance, contact: adystar67@gmail.com');
+                        window.location.href = '/dashboard';
                     }
                 } else {
-                    alert('Manual verification failed: ' + data.error);
+                    alert('❌ Manual verification failed: ' + data.error);
+                    this.disabled = false;
+                    this.textContent = '📝 Submit for Manual Verification';
                 }
             } catch (error) {
                 console.error('Manual verification error:', error);
-                alert('Manual verification failed');
+                alert('❌ Manual verification failed. Please contact support.');
+                this.disabled = false;
+                this.textContent = '📝 Submit for Manual Verification';
             }
         });
         
-        // Initialize payment on page load
-        initializePayment();
+        // Initialize on page load
+        window.addEventListener('load', function() {
+            initializePayment();
+            generateQRCode();
+        });
     </script>
 </body>
 </html>

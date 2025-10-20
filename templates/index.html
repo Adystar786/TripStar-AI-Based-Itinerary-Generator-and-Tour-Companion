@@ -3,27 +3,6 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <div class="user-menu">
-        <span>Welcome, <span id="user-name">{{ user.first_name }}</span>!</span>
-        <button onclick="logout()" class="logout-btn">Logout</button>
-    </div>
-
-    <script>
-    function logout() {
-        fetch('/auth/logout')
-            .then(response => {
-                if (response.ok) {
-                    window.location.href = '/';
-                } else {
-                    alert('Logout failed');
-                }
-            })
-            .catch(error => {
-                console.error('Logout error:', error);
-                alert('Logout failed');
-            });
-    }
-    </script>
     <title>TripStar AI - Smart Itinerary Generator</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css') }}">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
@@ -38,6 +17,11 @@
                     <h1>TripStar AI</h1>
                 </div>
                 <p>Smart AI-Powered Itinerary Generator for Travel Professionals</p>
+                <div class="user-menu">
+                    <!-- In the header section, change the span id -->
+                    <span>Welcome, <span id="user-display-name">{{ user.first_name }}</span>!</span>
+                    <button onclick="logout()" class="logout-btn">Logout</button>
+                </div>
             </div>
         </header>
         
@@ -45,9 +29,7 @@
             <section class="form-section" id="form-section">
                 <h2 class="form-title">🧭 Plan Your Client's Perfect Trip</h2>
 
-                <!-- Add this in the sidebar or top section of your dashboard -->
-            <div class="dashboard-container">
-                <!-- Plan Status Widget - Add this at the top -->
+                <!-- Plan Status Widget -->
                 <div class="plan-status-widget">
                     <div class="plan-status" id="plan-status">
                         <div class="status-free" style="display: none;">
@@ -70,18 +52,11 @@
                 <form id="itinerary-form">
                     <div class="form-group">
                         <label for="user-name">👤 Your Name <span class="required">*</span></label>
-                        <input type="text" id="user-name" placeholder="e.g., John Doe" required>
+                        <input type="text" id="user-name" name="user-name" placeholder="e.g., John Doe" required>
                     </div>
 
-                    <!-- Plan Selection -->
-                    <div class="form-group">
-                        <label>💎 Plan Selection <span class="required">*</span></label>
-                        <div class="traveler-type">
-                            <div class="option-btn selected" data-value="free">Free (3/day)</div>
-                            <div class="option-btn" data-value="pro">Pro (Unlimited)</div>
-                        </div>
-                        <input type="hidden" id="user-plan" value="free" required>
-                    </div>
+                    <!-- Hidden plan field - will be set from user's account -->
+                    <input type="hidden" id="user-plan" value="{{ user.plan }}">
 
                     <!-- Budget Friendly Option (Pro only) -->
                     <div class="form-group" id="budget-friendly-section" style="display: none;">
@@ -94,23 +69,38 @@
                         </label>
                     </div>
 
-                    <!-- Usage Counter -->
-                    <div class="form-group" id="usage-counter">
+                    <!-- Usage Counter (Free plan only) -->
+                    <div class="form-group" id="usage-counter" style="display: none;">
                         <div style="background: #e3f2fd; padding: 1rem; border-radius: 8px; text-align: center;">
                             <strong>Free Plan Usage:</strong> 
-                            <span id="free-uses-remaining">{{ free_uses_remaining }}</span> itineraries remaining today
+                            <span id="free-uses-display">{{ free_uses_remaining }}</span> itineraries remaining today
                         </div>
                     </div>
 
+                    <!-- Flight Search Section -->
                     <div class="form-group">
-                        <label>📍 Destinations <span class="required">*</span></label>
+                        <label for="departure-city">✈️ Departure City (FROM) <span class="required">*</span></label>
+                        <div class="searchable-select">
+                            <input type="text" class="search-input" id="departure-city-search" 
+                                placeholder="Type city or airport code (e.g., New York JFK)...">
+                            <div class="dropdown-options" id="departure-city-options"></div>
+                        </div>
+                        <input type="hidden" id="departure-city" required>
+                        <input type="hidden" id="departure-city-code" required>
+                    </div>
+
+                    <!-- FIND THIS SECTION (around line 80-95) and REPLACE with: -->
+                    <div class="form-group">
+                        <label>📍 Destinations (TO) <span class="required">*</span></label>
                         <div class="destinations-container" id="destinations-container">
                             <div class="destination-item">
                                 <div class="searchable-select">
-                                    <input type="text" class="search-input destination-search" placeholder="Type to search countries...">
+                                    <input type="text" class="search-input destination-search" 
+                                        placeholder="Type city or airport code (e.g., Paris CDG, Tehran IKA)...">
                                     <div class="dropdown-options" id="destination-options-0"></div>
                                 </div>
                                 <input type="hidden" class="destination-value">
+                                <input type="hidden" class="destination-code">
                             </div>
                         </div>
                         <button type="button" class="add-destination" id="add-destination">+ Add Another Destination</button>
@@ -218,49 +208,6 @@
                     <p class="summary-text" id="summary-text"></p>
                 </div>
             </section>
-            
-            <section class="pricing-section">
-                <h2 class="pricing-title">📦 Choose Your Plan</h2>
-                <div class="pricing-cards">
-                    <div class="pricing-card">
-                        <h3 class="plan-name">Free Trial</h3>
-                        <div class="plan-price">₹0</div>
-                        <ul class="plan-features">
-                            <li>2 AI itineraries</li>
-                            <li>Watermarked PDFs</li>
-                            <li>Basic features</li>
-                            <li>Standard support</li>
-                        </ul>
-                        <button class="plan-btn" onclick="selectPlan('free')">Get Started</button>
-                    </div>
-                    
-                    <div class="pricing-card featured">
-                        <h3 class="plan-name">Pro</h3>
-                        <div class="plan-price">₹499<span style="font-size: 1rem;">/mo</span></div>
-                        <ul class="plan-features">
-                            <li>Unlimited AI itineraries</li>
-                            <li>Custom branding</li>
-                            <li>Advanced AI features</li>
-                            <li>PDF & WhatsApp sharing</li>
-                            <li>Priority support</li>
-                            <li>Analytics dashboard</li>
-                        </ul>
-                        <button class="plan-btn" onclick="selectPlan('pro')">Go Pro</button>
-                    </div>
-                    
-                    <div class="pricing-card">
-                        <h3 class="plan-name">Per Export</h3>
-                        <div class="plan-price">₹99</div>
-                        <ul class="plan-features">
-                            <li>Pay-per-itinerary</li>
-                            <li>No watermarks</li>
-                            <li>Full AI features</li>
-                            <li>One-time payment</li>
-                        </ul>
-                        <button class="plan-btn" onclick="selectPlan('pro')">Buy Now</button>
-                    </div>
-                </div>
-            </section>
         </main>
         
         <footer>
@@ -272,30 +219,54 @@
     </div>
 
     <script>
-function upgradeToPro() {
-    window.location.href = '/payment';
-}
+    function logout() {
+        fetch('/auth/logout')
+            .then(response => {
+                if (response.ok) {
+                    window.location.href = '/';
+                } else {
+                    alert('Logout failed');
+                }
+            })
+            .catch(error => {
+                console.error('Logout error:', error);
+                alert('Logout failed');
+            });
+    }
 
-// Check plan status on page load
-document.addEventListener('DOMContentLoaded', function() {
-    fetch('/check-pro-access')
-        .then(response => response.json())
-        .then(data => {
-            if (data.is_pro) {
-                document.querySelector('.status-free').style.display = 'none';
-                document.querySelector('.status-pro').style.display = 'block';
-            } else {
-                document.querySelector('.status-free').style.display = 'block';
-                document.querySelector('.status-pro').style.display = 'none';
-                document.getElementById('free-uses-remaining').textContent = data.free_uses_remaining;
-            }
-        })
-        .catch(error => {
-            console.error('Error checking plan status:', error);
-        });
-});
-</script>
+    function upgradeToPro() {
+        window.location.href = '/payment';
+    }
 
-    <script src="{{ url_for('static', filename='js/index.js') }}"></script>
+    // Check plan status on page load
+    document.addEventListener('DOMContentLoaded', function() {
+        fetch('/check-pro-access')
+            .then(response => response.json())
+            .then(data => {
+                const statusFree = document.querySelector('.status-free');
+                const statusPro = document.querySelector('.status-pro');
+                const usageCounter = document.getElementById('usage-counter');
+                const budgetSection = document.getElementById('budget-friendly-section');
+                
+                if (data.is_pro) {
+                    statusFree.style.display = 'none';
+                    statusPro.style.display = 'block';
+                    usageCounter.style.display = 'none';
+                    budgetSection.style.display = 'block';
+                } else {
+                    statusFree.style.display = 'block';
+                    statusPro.style.display = 'none';
+                    usageCounter.style.display = 'block';
+                    budgetSection.style.display = 'none';
+                    document.getElementById('free-uses-display').textContent = data.free_uses_remaining;
+                }
+            })
+            .catch(error => {
+                console.error('Error checking plan status:', error);
+            });
+    });
+    </script>
+
+    <script src="{{ url_for('static', filename='js/index.js') }}?v=2"></script>
 </body>
 </html>

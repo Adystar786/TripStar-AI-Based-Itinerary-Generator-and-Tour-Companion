@@ -220,13 +220,12 @@ class TripStarAIModel:
         print("✅ Itinerary validation passed")
         return True
     
-
     def _create_prompt(self, user_data):
-        """Create prompt for Groq AI"""
-        # Fix field name mismatches
+        """Create prompt for Groq AI with enhanced traveler type emphasis"""
         user_name = user_data.get('user_name', 'Traveler')
         traveler_type = user_data.get('traveler_type', 'Solo')
         destinations = user_data.get('destinations', [])
+        destination_codes = user_data.get('destination_codes', [])
         start_date = user_data.get('start_date', '')
         end_date = user_data.get('end_date', '')
         budget = user_data.get('budget', 1000)
@@ -236,54 +235,88 @@ class TripStarAIModel:
         days = user_data.get('days', 3)
         
         destinations_str = ', '.join(destinations) if destinations else 'your destination'
+        codes_str = ', '.join(destination_codes) if destination_codes else ''
         notes_section = f"\n- Special Notes: {notes}" if notes else ""
+        
+        # Traveler type specific guidance
+        traveler_guidance = {
+            'Solo': 'Focus on social activities, safety, solo-friendly accommodations, and opportunities to meet other travelers.',
+            'Couple': 'Emphasize romantic experiences, private accommodations, couple activities, and intimate dining.',
+            'Family': 'Include child-friendly activities, family accommodations, educational experiences, and practical logistics for children.',
+            'Group': 'Focus on group activities, larger accommodations, budget sharing options, and social dynamics.'
+        }
+        
+        traveler_tips = traveler_guidance.get(traveler_type, 'Provide diverse experiences suitable for this traveler profile.')
+        
+        # Calculate days per destination for multiple destinations
+        if len(destinations) > 1:
+            days_per_dest = days // len(destinations)
+            remaining_days = days % len(destinations)
+            distribution = f"\nDistribute approximately {days_per_dest} days per destination"
+            if remaining_days > 0:
+                distribution += f" (with {remaining_days} extra day(s) for travel between destinations)"
+        else:
+            distribution = ""
         
         return f"""Create a comprehensive {days}-day travel itinerary for:
 
-        TRIP DETAILS:
-        - Traveler: {user_name} ({traveler_type})
-        - Destinations: {destinations_str}
-        - Dates: {start_date} to {end_date}
-        - Budget: {currency_symbol}{budget}
-        - Interests: {interests}{notes_section}
+    TRIP DETAILS:
+    - Traveler: {user_name} ({traveler_type})
+    - Destinations: {destinations_str} ({codes_str})
+    - Dates: {start_date} to {end_date}
+    - Budget: {currency_symbol}{budget}
+    - Interests: {interests}{notes_section}{distribution}
 
+    CRITICAL TRAVELER-SPECIFIC REQUIREMENTS:
+    - This itinerary is for a {traveler_type} traveler
+    - {traveler_tips}
+    - All activities, accommodations, and recommendations MUST be suitable for {traveler_type.lower()} travel
+    - Consider the specific needs, preferences, and dynamics of {traveler_type.lower()} travel
 
-        Provide detailed descriptions of locations, cultural context, historical significance, and practical information. Make the itinerary comprehensive and informative.
+    IMPORTANT - MULTIPLE DESTINATION ROUTING:
+    {f"This is a MULTI-CITY trip visiting: {destinations_str}. Create itinerary that covers ALL destinations properly." if len(destinations) > 1 else ""}
+    {f"Allocate days across all {len(destinations)} destinations. Include travel days between cities." if len(destinations) > 1 else ""}
 
-        Respond with ONLY this JSON structure (no markdown, no explanations):
+    Provide detailed descriptions of locations, cultural context, historical significance, and practical information. 
 
+    Respond with ONLY this JSON structure (no markdown, no explanations):
+
+    {{
+    "days": [
         {{
-        "days": [
-            {{
-            "day": 1,
-            "title": "Day Title",
-            "description": "Comprehensive overview including cultural context, historical significance, and what makes this day special",
-            "activities": [
-                "Morning: Specific activity with timing, location details, and cultural context",
-                "Afternoon: Specific activity with timing, location details, and practical information",
-                "Evening: Specific activity with timing, location details, and local insights"
-            ],
-            "tip": "Practical travel tip with local insights"
-            }}
+        "day": 1,
+        "location": "{destinations[0] if destinations else 'Destination'}",
+        "title": "Day Title",
+        "description": "Comprehensive overview including which city you're in, cultural context, and activities. SPECIFICALLY TAILORED FOR {traveler_type.upper()} TRAVEL.",
+        "activities": [
+            "Morning: Specific activity with timing and location - SUITABLE FOR {traveler_type}",
+            "Afternoon: Specific activity - SUITABLE FOR {traveler_type}",
+            "Evening: Specific activity - SUITABLE FOR {traveler_type}"
         ],
-        "popularSpots": [
-            {{
-            "name": "Spot Name",
-            "description": "Detailed description including historical context, cultural significance, architecture details, and visitor experience"
-            }}
-        ],
-        "summary": "Comprehensive 3-4 sentence trip overview with cultural insights and practical advice"
+        "tip": "Practical travel tip SPECIFICALLY FOR {traveler_type} travelers"
+        }}
+    ],
+    "popularSpots": [
+        {{
+        "name": "Spot Name",
+        "location": "City Name",
+        "description": "Detailed description - HIGHLIGHT WHY THIS IS GOOD FOR {traveler_type}"
+        }}
+    ],
+    "summary": "Comprehensive trip overview covering ALL destinations and SPECIFICALLY MENTIONING how it's tailored for {traveler_type} travel"
+    }}
 
-        REQUIREMENTS:
-        - Create exactly {user_data['days']} days
-        - Include 4-6 popular spots with detailed descriptions
-        - Make activities specific to {destinations_str} with cultural context
-        - Provide comprehensive location descriptions
-        - Include historical and cultural insights
-        - Consider {user_data['traveler_type']} traveler needs
-        - Stay within {user_data['currency_symbol']}{user_data['budget']} budget
-        - Focus on {user_data['interests']}
-        - Make descriptions informative and engaging"""
+    REQUIREMENTS:
+    - Create exactly {days} days covering ALL destinations: {destinations_str}
+    - Clearly indicate which city each day is in
+    - Include travel days between destinations if multiple cities
+    - Include 4-6 popular spots across ALL destinations
+    - Make activities specific to each destination AND suitable for {traveler_type}
+    - ALL recommendations must consider {traveler_type} traveler needs
+    - Stay within {currency_symbol}{budget} budget
+    - Focus on {interests}
+    - Make descriptions informative and engaging
+    - HIGHLIGHT in descriptions why each activity is good for {traveler_type} travelers"""
     
     def _create_fallback_itinerary(self, user_data):
         """Create a realistic fallback itinerary when AI fails"""
