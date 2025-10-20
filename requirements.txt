@@ -1,31 +1,12 @@
-# Web Framework
 Flask==2.3.3
 Flask-Login==0.6.3
 Flask-SQLAlchemy==3.0.5
 Flask-CORS==4.0.0
-
-# Database
 SQLAlchemy==2.0.23
-
-# Authentication & Security
 Werkzeug==2.3.7
-
-# AI/ML Integration
 groq==0.3.0
 python-dotenv==1.0.0
-
-# QR Code Generation
 qrcode[pil]==7.4.2
 Pillow==10.0.1
-
-# PDF Generation (for client-side)
-# Note: jspdf and html2canvas are included via CDN in your HTML
-
-# Email (if implementing email notifications)
-# flask-mail==0.9.1
-
-# Environment variables
 python-dotenv==1.0.0
-
-# Development & Utilities
 requests==2.31.0
