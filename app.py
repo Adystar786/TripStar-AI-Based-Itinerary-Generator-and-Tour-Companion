@@ -13,6 +13,7 @@ import qrcode
 from io import BytesIO
 import base64
 import re
+from dotenv import load_dotenv
 
 load_dotenv()
 
