@@ -3,58 +3,58 @@ import json
 import re
 from dotenv import load_dotenv
 
-print("🔍 Loading environment variables for Pro Model...")
+print("Loading environment variables for Pro Model...")
 load_dotenv()
 
 try:
     from groq import Groq
-    print("✅ Groq library imported successfully")
+    print("✓ Groq library imported successfully")
 except ImportError:
-    print("❌ Groq library not found!")
+    print("✗ Groq library not found!")
     Groq = None
 
 class TripStarProModel:
     def __init__(self):
         """Initialize Groq AI model for Pro users"""
         print("\n" + "="*60)
-        print("🚀 INITIALIZING TRIPSTAR AI PRO MODEL")
+        print("INITIALIZING TRIPSTAR AI PRO MODEL")
         print("="*60)
         
         if Groq is None:
-            print("❌ Groq not installed.")
+            print("✗ Groq not installed.")
             self.client = None
             return
             
         try:
             self.api_key = os.getenv('GROQ_API_KEY')
-            print(f"🔑 API Key check: {'Found' if self.api_key else 'NOT FOUND'}")
+            print(f"API Key check: {'Found' if self.api_key else 'NOT FOUND'}")
             
             if not self.api_key:
-                print("❌ GROQ_API_KEY not found!")
+                print("✗ GROQ_API_KEY not found!")
                 self.client = None
                 return
             
-            # Initialize Groq client
+            # Initialize Groq client - NO PROXIES PARAMETER
             self.client = Groq(api_key=self.api_key)
-            self.model_name = "llama-3.1-8b-instant"  # More powerful model for Pro
-            print(f"🤖 Selected PRO model: {self.model_name}")
+            self.model_name = "llama-3.1-8b-instant"
+            print(f"Selected PRO model: {self.model_name}")
             
-            print("✅ GROQ AI PRO MODEL READY!")
+            print("✓ GROQ AI PRO MODEL READY!")
             print("="*60 + "\n")
             
         except Exception as e:
-            print(f"❌ PRO MODEL INITIALIZATION FAILED: {e}")
+            print(f"✗ PRO MODEL INITIALIZATION FAILED: {e}")
             self.client = None
     
     def generate_itinerary(self, user_data):
         """Generate comprehensive itinerary for Pro users"""
         if not self.client:
-            print("⚠️ No AI model available, using enhanced fallback")
+            print("⚠ No AI model available, using enhanced fallback")
             return self._create_pro_fallback_itinerary(user_data)
             
         try:
             prompt = self._create_pro_prompt(user_data)
-            print(f"🎯 Generating PRO {user_data['days']}-day itinerary...")
+            print(f"Generating PRO {user_data['days']}-day itinerary...")
             
             response = self.client.chat.completions.create(
                 messages=[
@@ -71,7 +71,7 @@ class TripStarProModel:
                 ],
                 model=self.model_name,
                 temperature=0.7,
-                max_tokens=5500,  # More tokens for detailed responses
+                max_tokens=5500,
                 top_p=1
             )
             
@@ -79,24 +79,21 @@ class TripStarProModel:
             parsed_data = self._parse_pro_response(response_text)
             
             if parsed_data and self._validate_pro_itinerary(parsed_data):
-                print("✅ Successfully generated PRO itinerary!")
+                print("✓ Successfully generated PRO itinerary!")
                 return parsed_data
             else:
-                print("⚠️ Invalid PRO response, using enhanced fallback")
+                print("⚠ Invalid PRO response, using enhanced fallback")
                 return self._create_pro_fallback_itinerary(user_data)
             
         except Exception as e:
-            print(f"❌ Error generating PRO itinerary: {e}")
+            print(f"✗ Error generating PRO itinerary: {e}")
             return self._create_pro_fallback_itinerary(user_data)
     
-    # In pro_model_config.py, update the _create_pro_prompt method:
-
     def _create_pro_prompt(self, user_data):
         """Create comprehensive prompt for Pro users"""
         user_name = user_data.get('user_name', 'Traveler')
         traveler_type = user_data.get('traveler_type', 'Solo')
         destinations = user_data.get('destinations', [])
-        destination_codes = user_data.get('destination_codes', [])
         start_date = user_data.get('start_date', '')
         end_date = user_data.get('end_date', '')
         budget = user_data.get('budget', 1000)
@@ -104,91 +101,72 @@ class TripStarProModel:
         interests = user_data.get('interests', 'General sightseeing')
         notes = user_data.get('notes', '')
         days = user_data.get('days', 3)
-        budget_friendly = user_data.get('budget_friendly', False)
         
         destinations_str = ', '.join(destinations)
-        codes_str = ', '.join(destination_codes) if destination_codes else ''
-        budget_friendly_text = " with strong focus on budget optimization and cost-saving tips" if budget_friendly else ""
-        
-        # Calculate days per destination
-        if len(destinations) > 1:
-            days_per_dest = days // len(destinations)
-            remaining_days = days % len(destinations)
-            distribution = f"\nDistribute approximately {days_per_dest} days per destination, with {remaining_days} travel day(s)"
-        else:
-            distribution = ""
         
         return f"""Create a comprehensive {days}-day PRO travel itinerary with:
 
-    TRIP DETAILS:
-    - Traveler: {user_name} ({traveler_type})
-    - Destinations: {destinations_str} ({codes_str})
-    - Dates: {start_date} to {end_date}
-    - Budget: {currency_symbol}{budget}{budget_friendly_text}
-    - Interests: {interests}
-    - Special Notes: {notes}{distribution}
+TRIP DETAILS:
+- Traveler: {user_name} ({traveler_type})
+- Destinations: {destinations_str}
+- Dates: {start_date} to {end_date}
+- Budget: {currency_symbol}{budget}
+- Interests: {interests}
+- Special Notes: {notes}
 
-    CRITICAL - MULTI-DESTINATION ROUTING:
-    {f"This is a MULTI-CITY trip: {destinations_str}. You MUST create itinerary covering ALL {len(destinations)} destinations." if len(destinations) > 1 else ""}
-    {f"Clearly mark which city each day is in. Include inter-city travel logistics." if len(destinations) > 1 else ""}
-
-    RESPOND WITH THIS JSON STRUCTURE:
+RESPOND WITH THIS JSON STRUCTURE:
+{{
+  "days": [
     {{
-    "days": [
+      "day": 1,
+      "location": "City Name",
+      "title": "Day Title",
+      "description": "Overview",
+      "activities": [
         {{
-        "day": 1,
-        "location": "City Name",
-        "title": "Day Title (City Name)",
-        "description": "Overview including WHICH CITY you're in",
-        "activities": [
-            {{
-            "time": "Morning (8:00-12:00)",
-            "description": "Activity description",
-            "duration": "2-3 hours",
-            "cost": "Budget estimate",
-            "bookingLink": "https://example.com",
-            "moneySavingTip": "Cost-saving tip"
-            }}
-        ],
-        "transportation": "Transport details for this location",
-        "accommodation": "Hotel recommendations in this city",
-        "dining": "Restaurant recommendations",
-        "dailyBudget": "Budget breakdown",
-        "tip": "Pro tip"
+          "time": "Morning (8:00-12:00)",
+          "description": "Activity description",
+          "duration": "2-3 hours",
+          "cost": "{currency_symbol}50-100",
+          "bookingLink": "https://www.viator.com",
+          "moneySavingTip": "Tip here"
         }}
-    ],
-    "popularSpots": [
-        {{
-        "name": "Spot Name",
-        "location": "City Name",
-        "description": "Description",
-        "bestTimeToVisit": "Timing",
-        "entranceFee": "Cost",
-        "bookingLink": "https://example.com",
-        "moneySavingTip": "Saving tip"
-        }}
-    ],
-    "bookingResources": {{
-        "flights": "https://www.skyscanner.com",
-        "hotels": "https://www.booking.com",
-        "localTours": "https://www.viator.com"
-    }},
-    "budgetBreakdown": {{
-        "accommodation": "Cost per destination",
-        "activities": "Cost breakdown",
-        "food": "Food budget",
-        "transportation": "Transport including inter-city",
-        "totalEstimated": "Total",
-        "moneySavingStrategies": ["Strategy 1", "Strategy 2"]
-    }},
-    "summary": "Overview covering ALL {len(destinations)} destinations"
+      ],
+      "transportation": "Transport details",
+      "accommodation": "Hotel recommendations",
+      "dining": "Restaurant recommendations",
+      "dailyBudget": "{currency_symbol}200-300",
+      "tip": "Pro tip"
     }}
+  ],
+  "popularSpots": [
+    {{
+      "name": "Spot Name",
+      "location": "City Name",
+      "description": "Description",
+      "bestTimeToVisit": "Morning",
+      "entranceFee": "{currency_symbol}20",
+      "bookingLink": "https://www.viator.com",
+      "moneySavingTip": "Saving tip"
+    }}
+  ],
+  "bookingResources": {{
+    "flights": "https://www.skyscanner.com",
+    "hotels": "https://www.booking.com",
+    "localTours": "https://www.viator.com"
+  }},
+  "budgetBreakdown": {{
+    "accommodation": "{currency_symbol}{int(budget * 0.4)}",
+    "activities": "{currency_symbol}{int(budget * 0.3)}",
+    "food": "{currency_symbol}{int(budget * 0.2)}",
+    "transportation": "{currency_symbol}{int(budget * 0.1)}",
+    "totalEstimated": "{currency_symbol}{budget}",
+    "moneySavingStrategies": ["Strategy 1", "Strategy 2"]
+  }},
+  "summary": "Overview covering all destinations"
+}}
 
-    REQUIREMENTS:
-    - Create exactly {days} days across ALL destinations: {destinations_str}
-    - Mark which city each day is in using "location" field
-    - Include realistic inter-city travel days
-    - Provide city-specific recommendations"""
+Create exactly {days} days across destinations: {destinations_str}"""
     
     def _parse_pro_response(self, response_text):
         """Parse Pro AI response"""
@@ -210,107 +188,63 @@ class TripStarProModel:
         """Enhanced fallback for Pro users"""
         destinations = user_data.get('destinations', ['your destination'])
         destination_name = destinations[0] if destinations else "your destination"
+        days_count = user_data.get('days', 3)
+        budget = user_data.get('budget', 1000)
+        currency = user_data.get('currency_symbol', '$')
+        
+        days = []
+        for day in range(1, days_count + 1):
+            days.append({
+                "day": day,
+                "location": destination_name,
+                "title": f"Day {day} in {destination_name}",
+                "description": f"Explore {destination_name}'s premium attractions",
+                "activities": [
+                    {
+                        "time": "Morning (9:00-12:00)",
+                        "description": "Luxury guided tour",
+                        "duration": "3 hours",
+                        "cost": f"{currency}80-120",
+                        "bookingLink": "https://www.viator.com",
+                        "moneySavingTip": "Book 7 days in advance for 20% discount"
+                    }
+                ],
+                "transportation": "Private transfers included",
+                "accommodation": f"5-star hotel in {destination_name}",
+                "dining": "Fine dining experiences",
+                "dailyBudget": f"{currency}250-400",
+                "tip": "Book early for best rates"
+            })
         
         return {
-            "days": self._create_pro_days(user_data, destination_name),
-            "popularSpots": self._create_pro_spots(destination_name),
+            "days": days,
+            "popularSpots": [
+                {
+                    "name": f"{destination_name} Premium District",
+                    "location": destination_name,
+                    "description": "Experience the finest attractions",
+                    "bestTimeToVisit": "Morning",
+                    "entranceFee": f"{currency}25-50",
+                    "bookingLink": "https://www.viator.com",
+                    "moneySavingTip": "Book combo tickets online"
+                }
+            ],
             "bookingResources": {
                 "flights": "https://www.skyscanner.com",
                 "hotels": "https://www.booking.com",
-                "localTours": "https://www.viator.com",
-                "transport": "https://www.rome2rio.com",
-                "travelInsurance": "https://www.worldnomads.com"
+                "localTours": "https://www.viator.com"
             },
             "budgetBreakdown": {
-                "accommodation": f"{user_data['currency_symbol']}{int(user_data['budget']) * 0.4}",
-                "activities": f"{user_data['currency_symbol']}{int(user_data['budget']) * 0.3}",
-                "food": f"{user_data['currency_symbol']}{int(user_data['budget']) * 0.2}",
-                "transportation": f"{user_data['currency_symbol']}{int(user_data['budget']) * 0.1}",
-                "totalEstimated": user_data['currency_symbol'] + str(user_data['budget']),
+                "accommodation": f"{currency}{int(budget * 0.4)}",
+                "activities": f"{currency}{int(budget * 0.3)}",
+                "food": f"{currency}{int(budget * 0.2)}",
+                "transportation": f"{currency}{int(budget * 0.1)}",
+                "totalEstimated": f"{currency}{budget}",
                 "moneySavingStrategies": [
-                    "Book flights 6-8 weeks in advance for optimal pricing while considering seasonal cultural events",
-                    "Utilize local transportation systems to experience daily life while saving 60-70% compared to private transfers",
-                    "Discover authentic local restaurants in residential neighborhoods for both cultural immersion and significant cost savings",
-                    "Research free cultural events, museum discount days, and local festival schedules for budget-friendly entertainment",
-                    "Travel during shoulder seasons to experience ideal weather conditions while avoiding peak pricing periods"
+                    "Book 2-3 months in advance",
+                    "Use credit card travel benefits",
+                    "Consider shoulder season travel"
                 ]
             },
-            "summary": f"This premium {user_data['days']}-day itinerary through {destination_name} offers an unparalleled travel experience meticulously crafted for {user_data['traveler_type'].lower()} travelers. With a carefully optimized budget of {user_data['currency_symbol']}{user_data['budget']}, you'll enjoy luxury accommodations with historical significance, exclusive activities providing deep cultural immersion, and personalized service enhancing your understanding of local traditions. Our comprehensive planning includes direct booking links and sophisticated money-saving strategies that maximize your cultural experience while maintaining exceptional comfort and convenience. Each day is designed to provide not just sightseeing, but meaningful cultural engagement and historical context that transforms your journey into an educational and transformative experience."
+            "summary": f"This premium {days_count}-day itinerary offers luxury experiences in {destination_name}"
         }
-    
-    def _create_pro_days(self, user_data, destination_name):
-        """Create enhanced day itineraries for Pro users"""
-        days = []
-        for day in range(1, user_data['days'] + 1):
-            if day == 1:
-                days.append({
-                    "day": day,
-                    "title": f"Luxury Arrival and Cultural Introduction to {destination_name}",
-                    "description": f"Begin your premium journey with seamless transfers to historically significant accommodations in the heart of {destination_name}. This day focuses on cultural orientation through carefully selected experiences that introduce you to the destination's architectural heritage, culinary traditions, and local lifestyle with expert historical context.",
-                    "activities": [
-                        {
-                            "time": "Morning (9:00-12:00)",
-                            "description": f"Private airport transfer to your 5-star hotel located in {destination_name}'s historic district, with guided commentary on significant architectural landmarks and urban development history during the journey",
-                            "duration": "1 hour",
-                            "cost": f"{user_data['currency_symbol']}50-80",
-                            "bookingLink": "https://www.booking.com/transfer",
-                            "moneySavingTip": "Book round-trip transfers for 15% discount and consider shared luxury transfers for additional savings"
-                        },
-                        {
-                            "time": "Afternoon (14:00-17:00)",
-                            "description": f"Exclusive guided tour of {destination_name}'s historic district with skip-the-line access to key landmarks, detailed architectural analysis, and insights into the cultural evolution that shaped the city's unique character",
-                            "duration": "3 hours",
-                            "cost": f"{user_data['currency_symbol']}75-120",
-                            "bookingLink": "https://www.viator.com/exclusive-tours",
-                            "moneySavingTip": "Book online 7 days in advance for 20% early bird discount and consider small group tours for personalized attention at better value"
-                        }
-                    ],
-                    "transportation": "Private chauffeur service included with historical commentary. Comprehensive metro passes available for additional mobility and local cultural immersion experiences.",
-                    "accommodation": f"Luxury Suite at {destination_name} Grand Hotel - a historically preserved building with modern amenities (from {user_data['currency_symbol']}200/night), featuring architectural significance from the colonial era",
-                    "dining": f"Michelin-star restaurant experience showcasing fusion of traditional and contemporary culinary techniques ({user_data['currency_symbol']}80-150 per person), with sommelier-curated local wine pairings",
-                    "dailyBudget": f"{user_data['currency_symbol']}300-450",
-                    "tip": "Request early check-in when booking directly with heritage hotels for better room assignments, and download local ride-sharing apps that offer premium services at competitive prices for additional transport flexibility throughout your stay."
-                })
-            else:
-                days.append({
-                    "day": day,
-                    "title": f"Premium Cultural Experience Day {day} in {destination_name}",
-                    "description": f"Customized premium activities based on your interests in {destination_name}, focusing on deep cultural immersion, historical understanding, and authentic local experiences with expert guidance and comprehensive context.",
-                    "activities": [
-                        {
-                            "time": "Flexible timing based on optimal cultural engagement",
-                            "description": f"Personalized activities curated around {destination_name}'s unique cultural offerings, including private museum tours with art historians, traditional craft workshops with master artisans, or culinary experiences with local chefs preserving heritage recipes",
-                            "duration": "Custom 4-6 hour immersive experience",
-                            "cost": f"Varies based on selection ({user_data['currency_symbol']}100-300)",
-                            "bookingLink": "https://www.viator.com/custom-tours",
-                            "moneySavingTip": "Bundle multiple premium experiences for package discounts of 15-20%, and consider weekday bookings for better availability and pricing"
-                        }
-                    ],
-                    "transportation": "Private driver for comfort combined with strategic use of public transport for authentic local experiences and cultural observation opportunities",
-                    "accommodation": "Continuing at luxury heritage property with daily cultural programming and concierge services specializing in unique local experiences",
-                    "dining": "Curated dining experiences moving between Michelin-recognized establishments and hidden local gems with cultural significance and historical ambiance",
-                    "dailyBudget": f"{user_data['currency_symbol']}250-400",
-                    "tip": "Consult with your hotel's cultural concierge for last-minute local experiences and insider access to special events; many premium hotels have partnerships offering exclusive access to normally restricted cultural sites and activities."
-                })
-        return days
-    
-    def _create_pro_spots(self, destination_name):
-        """Create enhanced popular spots for Pro users"""
-        return [
-            {
-                "name": f"{destination_name} Cultural Heritage District",
-                "description": f"The historic heart of {destination_name} showcases centuries of architectural evolution, from colonial influences to contemporary designs. This carefully preserved district features UNESCO World Heritage sites, traditional markets operating for generations, and cultural institutions housing important historical artifacts. Visitors can trace the city's development through its buildings while experiencing living traditions maintained by local communities.",
-                "bestTimeToVisit": "Early morning (8-10 AM) to experience local daily life rituals before tourist crowds arrive, or late afternoon (4-6 PM) for optimal photography light and to observe traditional evening cultural practices",
-                "entranceFee": f"Varies by attraction (typically {destination_name} $10-25 for major sites), with comprehensive heritage passes offering 30% savings on multiple entries",
-                "bookingLink": "https://www.viator.com/premium-tours",
-                "moneySavingTip": "Purchase the city's cultural heritage pass for bundled access to multiple sites, and visit on first Sundays of the month when many museums offer free admission to support cultural accessibility"
-            },
-            {
-                "name": "Local Artisan Communities and Traditional Craft Centers",
-                "description": f"Authentic experiences with {destination_name}'s master artisans preserving traditional crafts that have been passed down through generations. These cultural hubs offer insights into local artistic traditions, from textile weaving with natural dyes to pottery techniques dating back centuries. Visitors can observe creation processes, understand cultural symbolism in designs, and support sustainable cultural preservation through responsible purchasing.",
-                "bestTimeToVisit": "Weekday mornings (10 AM-12 PM) for the most active workshop periods and opportunities for meaningful interactions with artisans away from weekend tourist crowds",
-                "entranceFee": "Typically free or donation-based, with workshop participation fees ranging $20-50 including materials and cultural explanations",
-                "bookingLink": "https://www.airbnb.com/experiences",
-                "moneySavingTip": "Book directly with artisan cooperatives rather than through tour operators to ensure more money supports the artists, and consider purchasing directly from workshop studios rather than tourist shops for authentic pieces at better prices"
-            }
-        ]
