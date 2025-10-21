@@ -5,7 +5,8 @@ flask-login==0.6.3
 flask-sqlalchemy==3.1.1
 sqlalchemy==2.0.36
 python-dotenv==1.0.1
-groq==0.3.1
+groq==0.3.0
 qrcode==8.0
 pillow==11.0.0
+
 
