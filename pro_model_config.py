@@ -26,7 +26,8 @@ class TripStarProModel:
             return
             
         try:
-            self.api_key = os.getenv('GROQ_API_KEY')
+            # Get API key - try multiple sources
+            self.api_key = os.getenv('GROQ_API_KEY') or os.environ.get('GROQ_API_KEY')
             print(f"API Key check: {'Found' if self.api_key else 'NOT FOUND'}")
             
             if not self.api_key:
@@ -34,12 +35,23 @@ class TripStarProModel:
                 self.client = None
                 return
             
-            # ✅ FIXED: No proxies parameter
+            # FIXED: Initialize Groq client without proxies parameter
             self.client = Groq(api_key=self.api_key)
             self.model_name = "llama-3.1-8b-instant"
             print(f"Selected PRO model: {self.model_name}")
             
-            print("✓ GROQ AI PRO MODEL READY!")
+            # Test connection
+            try:
+                test_response = self.client.chat.completions.create(
+                    messages=[{"role": "user", "content": "Hi"}],
+                    model=self.model_name,
+                    max_tokens=5
+                )
+                print("✓ GROQ AI PRO MODEL READY!")
+            except Exception as test_error:
+                print(f"⚠️ API test warning: {test_error}")
+                print("Will attempt to use client anyway...")
+            
             print("="*60 + "\n")
             
         except Exception as e:
