@@ -34,7 +34,7 @@ class TripStarProModel:
                 self.client = None
                 return
             
-            # Initialize Groq client - NO PROXIES PARAMETER
+            # ✅ FIXED: No proxies parameter
             self.client = Groq(api_key=self.api_key)
             self.model_name = "llama-3.1-8b-instant"
             print(f"Selected PRO model: {self.model_name}")
