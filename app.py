@@ -46,6 +46,13 @@ except ImportError as e:
     print(f"❌ AI models not available: {e}")
     AI_AVAILABLE = False
 
+try:
+    from payment_models import Payment
+except ImportError:
+    print("⚠️ payment_models.py not found, creating...")
+    # Payment model will be created inline if needed
+    Payment = None
+
 app = Flask(__name__)
 app.config['SECRET_KEY'] = 'tripstar-ai-secret-key-2025-change-in-production'
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///tripstar.db'
