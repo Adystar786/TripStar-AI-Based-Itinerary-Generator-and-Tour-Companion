@@ -21,69 +21,68 @@ except ImportError:
     Groq = None
 
 class TripStarAIModel:
-    def __init__(self):
-        """Initialize Groq AI model"""
-        print("\n" + "="*60)
-        print("INITIALIZING TRIPSTAR AI MODEL")
-        print("="*60)
+   def __init__(self):
+    """Initialize Groq AI model"""
+    print("\n" + "="*60)
+    print("INITIALIZING TRIPSTAR AI MODEL")
+    print("="*60)
+    
+    if Groq is None:
+        print("✗ Groq not installed. Install it with: pip install groq")
+        self.client = None
+        return
         
-        if Groq is None:
-            print("✗ Groq not installed. Install it with: pip install groq")
+    try:
+        # Get API key
+        self.api_key = os.getenv('GROQ_API_KEY')
+        print(f"API Key check: {'Found' if self.api_key else 'NOT FOUND'}")
+        
+        if not self.api_key:
+            print("\n✗ GROQ_API_KEY not found in environment!")
+            print("TO FIX THIS:")
+            print("   1. Create a file named '.env' in your project folder")
+            print("      GROQ_API_KEY=your_actual_api_key_here")
+            print("   3. Get your key from: https://console.groq.com/keys")
+            print("")
             self.client = None
             return
-            
-        try:
-            # Get API key
-            self.api_key = os.getenv('GROQ_API_KEY')
-            print(f"API Key check: {'Found' if self.api_key else 'NOT FOUND'}")
-            
-            if not self.api_key:
-                print("\n✗ GROQ_API_KEY not found in environment!")
-                print("TO FIX THIS:")
-                print("   1. Create a file named '.env' in your project folder")
-                print("   2. Add this line to it:")
-                print("      GROQ_API_KEY=your_actual_api_key_here")
-                print("   3. Get your key from: https://console.groq.com/keys")
-                print("")
-                self.client = None
-                return
-            
-            # Show partial key for verification (first 7 chars only)
-            key_preview = self.api_key[:7] + "..." if len(self.api_key) > 7 else "too short!"
-            print(f"API Key preview: {key_preview}")
-            
-            # Initialize Groq client - NO PROXIES PARAMETER
-            print("Initializing Groq client...")
-            self.client = Groq(api_key=self.api_key)
-            
-            # Use Llama 3.1 8B - faster for travel planning
-            self.model_name = "llama-3.1-8b-instant"
-            print(f"Selected model: {self.model_name}")
-            
-            # Test the connection
-            print("Testing API connection...")
-            test_response = self.client.chat.completions.create(
-                messages=[{"role": "user", "content": "Hello"}],
-                model=self.model_name,
-                max_tokens=10
-            )
-            
-            print("✓ GROQ AI MODEL READY!")
-            print(f"✓ Model: {self.model_name}")
-            print(f"✓ Test response: {test_response.choices[0].message.content}")
-            print("="*60 + "\n")
-            
-        except Exception as e:
-            print(f"\n✗ INITIALIZATION FAILED!")
-            print(f"✗ Error type: {type(e).__name__}")
-            print(f"✗ Error message: {str(e)}")
-            print("\nTROUBLESHOOTING:")
-            print("   1. Check your API key is correct")
-            print("   2. Verify internet connection")
-            print("   3. Try: pip install --upgrade groq")
-            print("   4. Get new key: https://console.groq.com/keys")
-            print("="*60 + "\n")
-            self.client = None
+        
+        # Show partial key for verification (first 7 chars only)
+        key_preview = self.api_key[:7] + "..." if len(self.api_key) > 7 else "too short!"
+        print(f"API Key preview: {key_preview}")
+        
+        # Initialize Groq client - NO PROXIES PARAMETER
+        print("Initializing Groq client...")
+        self.client = Groq(api_key=self.api_key)  # ← NO proxies parameter!
+        
+        # Use Llama 3.1 8B - faster for travel planning
+        self.model_name = "llama-3.1-8b-instant"
+        print(f"Selected model: {self.model_name}")
+        
+        # Test the connection
+        print("Testing API connection...")
+        test_response = self.client.chat.completions.create(
+            messages=[{"role": "user", "content": "Hello"}],
+            model=self.model_name,
+            max_tokens=10
+        )
+        
+        print("✓ GROQ AI MODEL READY!")
+        print(f"✓ Model: {self.model_name}")
+        print(f"✓ Test response: {test_response.choices[0].message.content}")
+        print("="*60 + "\n")
+        
+    except Exception as e:
+        print(f"\n✗ INITIALIZATION FAILED!")
+        print(f"✗ Error type: {type(e).__name__}")
+        print(f"✗ Error message: {str(e)}")
+        print("\nTROUBLESHOOTING:")
+        print("   1. Check your API key is correct")
+        print("   2. Verify internet connection")
+        print("   3. Try: pip install --upgrade groq")
+        print("   4. Get new key: https://console.groq.com/keys")
+        print("="*60 + "\n")
+        self.client = None
     
     def generate_itinerary(self, user_data):
         """Generate itinerary based on user plan"""
