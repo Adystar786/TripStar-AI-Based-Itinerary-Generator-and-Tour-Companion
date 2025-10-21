@@ -14,6 +14,8 @@ from io import BytesIO
 import base64
 import re
 
+load_dotenv()
+
 # Country interests mapping for AI suggestions
 countryInterests = {
     "France": ["Wine Tasting", "Art Museums", "Historical Sites", "Gourmet Food", "Shopping", "Romantic Getaways", "Eiffel Tower", "Louvre Museum", "French Riviera", "Provence Lavender Fields", "Normandy D-Day Beaches", "Loire Valley Castles"],
@@ -383,9 +385,6 @@ def send_rejection_email(user, reason):
     
     logger.info(f"Rejection email sent to: {user.email}")
     print(body)  # For testing
-
-# Update the generate_itinerary function to ensure pro users get unlimited access
-# (The existing implementation should already handle this, but let's add a check)
 
 @app.route('/check-pro-access')
 @login_required
@@ -1655,6 +1654,9 @@ def not_found(error):
 def internal_error(error):
     return jsonify({'error': 'Internal server error'}), 500
 
+# Remove any existing uvicorn.run lines and replace with:
+
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 5000))
-    uvicorn.run(app, host="0.0.0.0", port=port)
+    print(f"🚀 Starting TripStar AI on port {port}...")
+    app.run(host="0.0.0.0", port=port, debug=True)
