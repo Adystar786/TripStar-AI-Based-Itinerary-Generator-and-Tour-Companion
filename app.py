@@ -14,13 +14,6 @@ from io import BytesIO
 import base64
 import re
 
-with app.app_context():
-    try:
-        db.create_all()
-        print("✅ Database tables created successfully")
-    except Exception as e:
-        print(f"⚠️ Database initialization warning: {e}")
-
 # Country interests mapping for AI suggestions
 countryInterests = {
     "France": ["Wine Tasting", "Art Museums", "Historical Sites", "Gourmet Food", "Shopping", "Romantic Getaways", "Eiffel Tower", "Louvre Museum", "French Riviera", "Provence Lavender Fields", "Normandy D-Day Beaches", "Loire Valley Castles"],
@@ -431,9 +424,12 @@ else:
     ai_model = None
     print("⚠️ Running without AI capabilities")
 
-# Create tables
 with app.app_context():
-    db.create_all()
+    try:
+        db.create_all()
+        print("✅ Database tables created successfully")
+    except Exception as e:
+        print(f"⚠️ Database initialization warning: {e}")
 
 @app.route('/')
 def welcome():
