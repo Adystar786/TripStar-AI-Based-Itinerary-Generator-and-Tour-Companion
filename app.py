@@ -32,15 +32,26 @@ countryInterests = {
     "default": ["Historical Sites", "Local Cuisine", "Shopping", "Nature & Parks", "Cultural Experiences", "Adventure Activities", "Photography", "Wellness & Spas", "Nightlife", "Family Activities", "Art & Museums", "Beach Relaxation"]
 }
 
-# Import your AI models
-try:
-    from model_config import TripStarAIModel
-    from pro_model_config import TripStarProModel
-    AI_AVAILABLE = True
-    print("✅ AI models imported successfully")
-except ImportError as e:
-    print(f"❌ AI models not available: {e}")
-    AI_AVAILABLE = False
+# Initialize AI model with better error handling
+if AI_AVAILABLE:
+    try:
+        ai_model = TripStarAIModel()
+        if ai_model.is_available():
+            print("✅ AI model initialized and ready!")
+        else:
+            print("❌ AI model initialized but not available - check API key")
+            ai_model = None
+    except Exception as e:
+        print(f"❌ AI model initialization error: {e}")
+        ai_model = None
+else:
+    ai_model = None
+    print("⚠️ Running without AI capabilities")
+
+# Add this global variable to track AI status
+AI_MODEL_READY = ai_model is not None and ai_model.is_available()
+
+print(f"🤖 FINAL AI STATUS: {'READY' if AI_MODEL_READY else 'NOT AVAILABLE'}")
 
 try:
     from payment_models import Payment
