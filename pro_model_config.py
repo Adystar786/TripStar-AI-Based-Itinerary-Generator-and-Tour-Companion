@@ -27,7 +27,8 @@ class TripStarProModel:
             
         try:
             # Get API key - try multiple sources
-            self.api_key = os.getenv('GROQ_API_KEY') or os.environ.get('GROQ_API_KEY')
+            self.api_key = (os.getenv('GROQ_API_KEY') or 
+                          os.environ.get('GROQ_API_KEY'))
             print(f"API Key check: {'Found' if self.api_key else 'NOT FOUND'}")
             
             if not self.api_key:
