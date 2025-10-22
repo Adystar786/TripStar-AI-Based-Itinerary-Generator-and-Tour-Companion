@@ -673,7 +673,7 @@ def generate_itinerary():
         print(f"📊 Destinations: {', '.join(data['destinations'])}")
         
         # Use appropriate AI model based on plan
-        if AI_AVAILABLE:
+        if AI_AVAILABLE and AI_MODEL_READY:
             if ai_input_data['plan'] == 'pro':
                 print(f"🚀 Using PRO AI model for pro plan itinerary generation")
                 if not hasattr(generate_itinerary, 'pro_model'):
