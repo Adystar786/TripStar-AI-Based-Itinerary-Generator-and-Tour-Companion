@@ -438,20 +438,6 @@ def load_user(user_id):
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-# Initialize AI model
-if AI_AVAILABLE:
-    ai_model = TripStarAIModel()
-else:
-    ai_model = None
-    print("⚠️ Running without AI capabilities")
-
-with app.app_context():
-    try:
-        db.create_all()
-        print("✅ Database tables created successfully")
-    except Exception as e:
-        print(f"⚠️ Database initialization warning: {e}")
-
 @app.route('/')
 def welcome():
     """Welcome page - similar to Viator"""
