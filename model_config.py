@@ -3,14 +3,21 @@ import json
 import re
 from dotenv import load_dotenv
 
+# Load environment variables
 print("Loading environment variables...")
 load_dotenv()
+
+# SAFE IMPORT - Initialize Groq to None first
+Groq = None
 
 try:
     from groq import Groq
     print("✓ Groq library imported successfully")
-except ImportError:
-    print("✗ Groq library not found! Run: pip install groq")
+except ImportError as e:
+    print(f"✗ Groq library not found! Run: pip install groq")
+    Groq = None
+except Exception as e:
+    print(f"✗ Error importing Groq: {e}")
     Groq = None
 
 class TripStarAIModel:
