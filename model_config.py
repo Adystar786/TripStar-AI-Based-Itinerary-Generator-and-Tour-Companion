@@ -75,9 +75,9 @@ class TripStarAIModel:
             key_preview = self.api_key[:4] + "..." + self.api_key[-4:] if len(self.api_key) > 8 else "invalid"
             print(f"API Key preview: {key_preview}")
             
-            # Initialize Groq client WITHOUT proxies parameter
+            # Initialize Groq client - FIXED: No proxies parameter
             print("Initializing Groq client...")
-            self.client = Groq(api_key=self.api_key)  # FIXED: Removed proxies parameter
+            self.client = Groq(api_key=self.api_key)
             self.model_name = "llama-3.1-8b-instant"
             print(f"Model: {self.model_name}")
             
@@ -332,8 +332,3 @@ Create exactly {days} days with detailed activities."""
     def _create_pro_fallback_itinerary(self, user_data):
         """Enhanced fallback for Pro users"""
         return self._create_fallback_itinerary(user_data)
-
-    class Config:
-        SECRET_KEY = 'your-secret-key-here'
-        CORS_ORIGINS = ['http://localhost:3000', 'http://127.0.0.1:3000']
-        MAX_CONTENT_LENGTH = 16 * 1024 * 1024
