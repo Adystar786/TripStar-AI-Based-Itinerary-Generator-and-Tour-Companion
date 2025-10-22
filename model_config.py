@@ -3,7 +3,6 @@ import json
 import re
 from dotenv import load_dotenv
 
-# Load environment variables
 print("Loading environment variables...")
 load_dotenv()
 
@@ -16,76 +15,73 @@ except ImportError:
 
 class TripStarAIModel:
     def __init__(self):
-        """Initialize Groq AI model"""
+        """Initialize Groq AI model with better error handling"""
         print("\n" + "="*60)
-        print("INITIALIZING TRIPSTAR AI MODEL")
+        print("INITIALIZING TRIPSTAR AI MODEL ON RENDER")
         print("="*60)
         
         if Groq is None:
             print("✗ Groq not installed. Install it with: pip install groq")
             self.client = None
+            self.model_name = None
             return
             
         try:
-            # Get API key - try multiple sources
-            self.api_key = os.getenv('GROQ_API_KEY') or os.environ.get('GROQ_API_KEY')
+            # Get API key from multiple sources
+            self.api_key = (os.getenv('GROQ_API_KEY') or 
+                          os.environ.get('GROQ_API_KEY'))
             
-            print(f"API Key check: {'Found' if self.api_key else 'NOT FOUND'}")
-            print(f"Environment variables available: {list(os.environ.keys())[:5]}...")
+            print(f"API Key available: {'YES' if self.api_key else 'NO'}")
             
             if not self.api_key:
-                print("\n✗ GROQ_API_KEY not found in environment!")
-                print("TO FIX THIS ON RENDER:")
-                print("   1. Go to Render Dashboard")
-                print("   2. Select your service")
-                print("   3. Go to 'Environment' tab")
-                print("   4. Add GROQ_API_KEY with your actual key")
-                print("   5. Save and redeploy")
-                print("")
+                print("❌ CRITICAL: GROQ_API_KEY not found!")
+                print("Current environment variables:")
+                for key in sorted(os.environ.keys()):
+                    if 'GROQ' in key.upper() or 'API' in key.upper():
+                        print(f"  {key}: {'*' * 8} (hidden)")
+                    elif len(key) < 20:
+                        print(f"  {key}: {os.environ[key]}")
                 self.client = None
+                self.model_name = None
                 return
             
-            # Show partial key for verification (first 7 chars only)
-            key_preview = self.api_key[:7] + "..." if len(self.api_key) > 7 else "too short!"
+            # Show key preview safely
+            key_preview = self.api_key[:4] + "..." + self.api_key[-4:] if len(self.api_key) > 8 else "invalid"
             print(f"API Key preview: {key_preview}")
             
-            # Initialize Groq client - FIXED: No proxies parameter
+            # Initialize Groq client
             print("Initializing Groq client...")
             self.client = Groq(api_key=self.api_key)
-            
-            # Use Llama 3.1 8B - faster for travel planning
             self.model_name = "llama-3.1-8b-instant"
-            print(f"Selected model: {self.model_name}")
+            print(f"Model: {self.model_name}")
             
             # Test the connection with a simple request
             print("Testing API connection...")
-            try:
-                test_response = self.client.chat.completions.create(
-                    messages=[{"role": "user", "content": "Hello"}],
-                    model=self.model_name,
-                    max_tokens=10,
-                    temperature=0.5
-                )
-                print("✓ GROQ AI MODEL READY!")
-                print(f"✓ Model: {self.model_name}")
-                print(f"✓ Test response: {test_response.choices[0].message.content}")
-            except Exception as test_error:
-                print(f"⚠️ API test failed but client created: {test_error}")
-                print("Will attempt to use client anyway...")
+            test_response = self.client.chat.completions.create(
+                messages=[{"role": "user", "content": "Say 'OK' if working"}],
+                model=self.model_name,
+                max_tokens=5,
+                temperature=0.1
+            )
             
-            print("="*60 + "\n")
+            test_result = test_response.choices[0].message.content.strip()
+            print(f"✓ API Test Response: '{test_result}'")
+            print("✅ GROQ AI MODEL INITIALIZED SUCCESSFULLY!")
             
         except Exception as e:
-            print(f"\n✗ INITIALIZATION FAILED!")
-            print(f"✗ Error type: {type(e).__name__}")
-            print(f"✗ Error message: {str(e)}")
-            print("\nTROUBLESHOOTING:")
-            print("   1. Verify GROQ_API_KEY is set in Render environment variables")
-            print("   2. Check API key is valid at https://console.groq.com/keys")
-            print("   3. Ensure groq package is in requirements.txt")
-            print("   4. Check Render deployment logs for errors")
-            print("="*60 + "\n")
+            print(f"❌ AI MODEL INITIALIZATION FAILED!")
+            print(f"Error type: {type(e).__name__}")
+            print(f"Error message: {str(e)}")
             self.client = None
+            self.model_name = None
+        
+        print("="*60 + "\n")
+    
+    def is_available(self):
+        """Check if AI model is available"""
+        return self.client is not None and self.model_name is not None
+
+    # ... rest of your existing methods remain the same ...
     
     def generate_itinerary(self, user_data):
         """Generate itinerary based on user plan"""
