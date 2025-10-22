@@ -75,9 +75,9 @@ class TripStarAIModel:
             key_preview = self.api_key[:4] + "..." + self.api_key[-4:] if len(self.api_key) > 8 else "invalid"
             print(f"API Key preview: {key_preview}")
             
-            # Initialize Groq client
+            # Initialize Groq client WITHOUT proxies parameter
             print("Initializing Groq client...")
-            self.client = Groq(api_key=self.api_key)
+            self.client = Groq(api_key=self.api_key)  # FIXED: Removed proxies parameter
             self.model_name = "llama-3.1-8b-instant"
             print(f"Model: {self.model_name}")
             
@@ -107,8 +107,6 @@ class TripStarAIModel:
         """Check if AI model is available"""
         return self.client is not None and self.model_name is not None
 
-    # ... rest of your existing methods remain the same ...
-    
     def generate_itinerary(self, user_data):
         """Generate itinerary based on user plan"""
         user_plan = user_data.get('plan', 'free')
