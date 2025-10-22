@@ -1,23 +1,42 @@
 import os
 import json
 import re
+import sys
 from dotenv import load_dotenv
 
 # Load environment variables
 print("Loading environment variables...")
 load_dotenv()
 
-# SAFE IMPORT - Initialize Groq to None first
+# Enhanced import handling for Render
+print("Python version:", sys.version)
+print("Python path:", sys.path)
+
+# SAFE IMPORT - Multiple strategies
 Groq = None
+import_success = False
 
 try:
     from groq import Groq
-    print("✓ Groq library imported successfully")
+    print("✅ Groq library imported successfully")
+    import_success = True
 except ImportError as e:
-    print(f"✗ Groq library not found! Run: pip install groq")
-    Groq = None
+    print(f"❌ Groq import failed: {e}")
+    
+    # Try alternative import method
+    try:
+        import groq
+        Groq = groq.Groq
+        print("✅ Groq library imported via alternative method")
+        import_success = True
+    except Exception as e2:
+        print(f"❌ Alternative import also failed: {e2}")
+        
 except Exception as e:
-    print(f"✗ Error importing Groq: {e}")
+    print(f"❌ Unexpected import error: {e}")
+
+if not import_success:
+    print("⚠️ Groq will not be available")
     Groq = None
 
 class TripStarAIModel:
