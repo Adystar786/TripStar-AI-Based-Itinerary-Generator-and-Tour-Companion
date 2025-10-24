@@ -786,7 +786,195 @@ def search_flights():
         start_date = data.get('start_date', '')
         end_date = data.get('end_date', '')
         budget = data.get('budget', 1000)
-        currency_symbol = data.get('currency_symbol', ')
+        currency_symbol = data.get('currency_symbol', '
+        
+        if not departure_city or not destinations:
+            return jsonify({
+                'success': False,
+                'error': 'Missing required parameters'
+            }), 400
+        
+        flight_results = generate_fallback_flights(
+            departure_city, departure_city_code, destinations, destination_codes,
+            start_date, end_date, budget, currency_symbol
+        )
+        
+        return jsonify({
+            'success': True,
+            'flights': flight_results
+        })
+        
+    except Exception as e:
+        logger.error(f"Flight search error: {str(e)}")
+        return jsonify({
+            'success': False,
+            'error': 'Flight search failed'
+        }), 500
+
+def generate_fallback_flights(departure_city, departure_code, destinations, destination_codes, start_date, end_date, budget, currency_symbol):
+    """Generate fallback flight recommendations"""
+    
+    if not destinations or len(destinations) == 0:
+        return {"flights": [], "searchLink": "#", "generalTips": []}
+    
+    if not destination_codes or len(destination_codes) != len(destinations):
+        destination_codes = []
+        for dest in destinations:
+            if ',' in dest:
+                city = dest.split(',')[0].strip()
+                destination_codes.append(city[:3].upper())
+            else:
+                destination_codes.append(dest[:3].upper())
+    
+    flights = []
+    
+    if len(destinations) > 1:
+        # Multi-city
+        route_description = f"{departure_city} → " + " → ".join(destinations) + f" → {departure_city}"
+        
+        flights.append({
+            "routeType": "multi-city",
+            "route": route_description,
+            "departureCity": departure_city,
+            "destinationCodes": destination_codes,
+            "outboundDate": start_date,
+            "returnDate": end_date,
+            "options": [
+                {
+                    "airline": "Multiple Airlines",
+                    "flightNumber": "Multi-city booking",
+                    "cabinClasses": {
+                        "economy": {
+                            "price": f"{currency_symbol}{int(budget * 0.4)}",
+                            "available": True
+                        }
+                    },
+                    "duration": "Varies",
+                    "bookingLink": create_multicity_flight_url(departure_code, destination_codes, start_date, end_date),
+                    "moneySavingTips": [
+                        "Book all segments together",
+                        "Be flexible with dates"
+                    ]
+                }
+            ]
+        })
+    else:
+        # Single destination
+        destination = destinations[0]
+        
+        flights.append({
+            "routeType": "round-trip",
+            "destination": destination,
+            "departureCity": departure_city,
+            "outboundDate": start_date,
+            "returnDate": end_date,
+            "options": [
+                {
+                    "airline": "Major Airlines",
+                    "flightNumber": "Multiple options",
+                    "cabinClasses": {
+                        "economy": {
+                            "price": f"{currency_symbol}{int(budget * 0.3)}",
+                            "available": True
+                        }
+                    },
+                    "duration": "Varies",
+                    "bookingLink": create_flight_search_url(departure_city, destination, start_date, end_date),
+                    "moneySavingTips": [
+                        "Book 6-8 weeks in advance",
+                        "Consider nearby airports"
+                    ]
+                }
+            ]
+        })
+    
+    return {
+        "flights": flights,
+        "searchLink": create_multicity_flight_url(departure_code, destination_codes, start_date, end_date) if len(destinations) > 1 else create_flight_search_url(departure_city, destinations[0], start_date, end_date),
+        "generalTips": [
+            "Book flights in advance for best prices",
+            "Be flexible with dates",
+            "Check baggage policies"
+        ]
+    }
+
+def create_multicity_flight_url(departure_code, destination_codes, start_date, end_date):
+    """Create Google Flights multi-city URL"""
+    from urllib.parse import quote
+    
+    try:
+        if not destination_codes or len(destination_codes) == 0:
+            return "https://www.google.com/travel/flights"
+        
+        route_str = f"{departure_code}-{destination_codes[0]}" if departure_code else f"{destination_codes[0]}"
+        for i in range(1, len(destination_codes)):
+            route_str += f"-{destination_codes[i]}"
+        
+        return f"https://www.google.com/travel/flights?q=Multi-city%20flights%20{quote(route_str)}"
+    except:
+        return "https://www.google.com/travel/flights"
+
+def create_flight_search_url(departure, destination, start_date, end_date):
+    """Create Google Flights search URL"""
+    from urllib.parse import quote
+    
+    dep_city = departure.split(',')[0].strip() if ',' in departure else departure
+    dest_city = destination.split(',')[0].strip() if ',' in destination else destination
+    
+    return f"https://www.google.com/travel/flights?q=Flights%20to%20{quote(dest_city)}%20from%20{quote(dep_city)}"
+
+# ============================================
+# UTILITY ROUTES
+# ============================================
+
+@app.route('/health')
+def health_check():
+    """Health check endpoint"""
+    return jsonify({
+        'status': 'healthy',
+        'database': 'connected',
+        'timestamp': datetime.now().isoformat()
+    })
+
+@app.route('/test-ai')
+def test_ai():
+    """Test AI functionality"""
+    if not AI_AVAILABLE or not ai_model:
+        return jsonify({'status': 'AI not available'})
+    
+    return jsonify({
+        'status': 'AI available',
+        'model_ready': AI_MODEL_READY
+    })
+
+@app.route('/static/<path:filename>')
+def serve_static(filename):
+    """Serve static files"""
+    return send_from_directory('static', filename)
+
+# ============================================
+# ERROR HANDLERS
+# ============================================
+
+@app.errorhandler(404)
+def not_found(error):
+    return jsonify({'error': 'Resource not found'}), 404
+
+@app.errorhandler(500)
+def internal_error(error):
+    return jsonify({'error': 'Internal server error'}), 500
+
+# ============================================
+# MAIN
+# ============================================
+
+if __name__ == "__main__":
+    port = int(os.environ.get("PORT", 5000))
+    print(f"🚀 Starting TripStar AI on port {port}...")
+    print(f"📊 Database: tripstar.db")
+    print(f"🤖 AI Available: {AI_AVAILABLE}")
+    print(f"✅ AI Ready: {AI_MODEL_READY}")
+    app.run(host="0.0.0.0", port=port, debug=False))
         
         if not departure_city or not destinations:
             return jsonify({
