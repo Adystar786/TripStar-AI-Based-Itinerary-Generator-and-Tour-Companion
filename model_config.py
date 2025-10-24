@@ -69,19 +69,8 @@ class TripStarAIModel:
             key_preview = self.api_key[:4] + "..." + self.api_key[-4:] if len(self.api_key) > 8 else "invalid"
             print(f"API Key preview: {key_preview}")
             
-            # Initialize Groq client - CLEAN VERSION (NO PROXIES)
+            # Initialize Groq client - SIMPLE VERSION (NO PROXIES)
             print("Initializing Groq client...")
-            
-            # Create client with ONLY the api_key parameter
-            # Groq library version 0.9.0+ doesn't support proxies parameter
-            import inspect
-            
-            # Check what parameters Groq.__init__ accepts
-            try:
-                groq_params = inspect.signature(Groq.__init__).parameters
-                print(f"Groq client accepts parameters: {list(groq_params.keys())}")
-            except:
-                print("Could not inspect Groq parameters")
             
             try:
                 # ONLY pass api_key - nothing else
