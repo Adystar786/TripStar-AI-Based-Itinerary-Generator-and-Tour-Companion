@@ -36,29 +36,18 @@ class TripStarProModel:
                 self.client = None
                 return
             
-            # FIXED: Initialize Groq client with better error handling
+            # FIXED: Initialize Groq client - SIMPLE VERSION
             print("Initializing Pro Groq client...")
             try:
-                # Method 1: Try with just api_key
+                # ONLY pass api_key - nothing else
                 self.client = Groq(api_key=self.api_key)
-                print("✓ Pro Groq client initialized with Method 1")
-            except TypeError as te:
-                print(f"⚠️ Method 1 failed: {te}")
-                # Method 2: Try with explicit kwargs
-                try:
-                    self.client = Groq(**{'api_key': self.api_key})
-                    print("✓ Pro Groq client initialized with Method 2")
-                except Exception as e2:
-                    print(f"⚠️ Method 2 failed: {e2}")
-                    # Method 3: Try importing Groq differently
-                    try:
-                        import groq
-                        self.client = groq.Groq(api_key=self.api_key)
-                        print("✓ Pro Groq client initialized with Method 3")
-                    except Exception as e3:
-                        print(f"❌ All Pro initialization methods failed")
-                        self.client = None
-                        return
+                print("✓ Pro Groq client initialized successfully")
+            except Exception as init_error:
+                print(f"❌ Pro Groq client initialization failed: {init_error}")
+                import traceback
+                traceback.print_exc()
+                self.client = None
+                return
             
             self.model_name = "llama-3.1-8b-instant"
             print(f"Selected PRO model: {self.model_name}")
