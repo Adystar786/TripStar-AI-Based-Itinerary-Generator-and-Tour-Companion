@@ -8,10 +8,6 @@ from dotenv import load_dotenv
 print("Loading environment variables...")
 load_dotenv()
 
-# Enhanced import handling for Render
-print("Python version:", sys.version)
-print("Python path:", sys.path)
-
 # SAFE IMPORT - Multiple strategies
 Groq = None
 import_success = False
@@ -65,8 +61,6 @@ class TripStarAIModel:
                 for key in sorted(os.environ.keys()):
                     if 'GROQ' in key.upper() or 'API' in key.upper():
                         print(f"  {key}: {'*' * 8} (hidden)")
-                    elif len(key) < 20:
-                        print(f"  {key}: {os.environ[key]}")
                 self.client = None
                 self.model_name = None
                 return
@@ -75,29 +69,60 @@ class TripStarAIModel:
             key_preview = self.api_key[:4] + "..." + self.api_key[-4:] if len(self.api_key) > 8 else "invalid"
             print(f"API Key preview: {key_preview}")
             
-            # Initialize Groq client - FIXED: No proxies parameter
+            # Initialize Groq client - FIXED VERSION
             print("Initializing Groq client...")
-            self.client = Groq(api_key=self.api_key)
+            try:
+                # Method 1: Try with just api_key
+                self.client = Groq(api_key=self.api_key)
+                print("✓ Groq client initialized with Method 1")
+            except TypeError as te:
+                print(f"⚠️ Method 1 failed: {te}")
+                # Method 2: Try with explicit kwargs
+                try:
+                    self.client = Groq(**{'api_key': self.api_key})
+                    print("✓ Groq client initialized with Method 2")
+                except Exception as e2:
+                    print(f"⚠️ Method 2 failed: {e2}")
+                    # Method 3: Try importing Groq differently
+                    try:
+                        import groq
+                        self.client = groq.Groq(api_key=self.api_key)
+                        print("✓ Groq client initialized with Method 3")
+                    except Exception as e3:
+                        print(f"❌ All initialization methods failed")
+                        self.client = None
+                        self.model_name = None
+                        return
+            
             self.model_name = "llama-3.1-8b-instant"
             print(f"Model: {self.model_name}")
             
             # Test the connection with a simple request
-            print("Testing API connection...")
-            test_response = self.client.chat.completions.create(
-                messages=[{"role": "user", "content": "Say 'OK' if working"}],
-                model=self.model_name,
-                max_tokens=5,
-                temperature=0.1
-            )
-            
-            test_result = test_response.choices[0].message.content.strip()
-            print(f"✓ API Test Response: '{test_result}'")
-            print("✅ GROQ AI MODEL INITIALIZED SUCCESSFULLY!")
+            if self.client:
+                print("Testing API connection...")
+                try:
+                    test_response = self.client.chat.completions.create(
+                        messages=[{"role": "user", "content": "Say 'OK' if working"}],
+                        model=self.model_name,
+                        max_tokens=5,
+                        temperature=0.1
+                    )
+                    
+                    test_result = test_response.choices[0].message.content.strip()
+                    print(f"✓ API Test Response: '{test_result}'")
+                    print("✅ GROQ AI MODEL INITIALIZED SUCCESSFULLY!")
+                except Exception as test_error:
+                    print(f"⚠️ API test failed but client is initialized: {test_error}")
+                    # Don't set client to None here - it might still work
+                    print("Will continue with client...")
             
         except Exception as e:
             print(f"❌ AI MODEL INITIALIZATION FAILED!")
             print(f"Error type: {type(e).__name__}")
             print(f"Error message: {str(e)}")
+            import traceback
+            print("Full traceback:")
+            traceback.print_exc()
             self.client = None
             self.model_name = None
         
@@ -145,37 +170,44 @@ class TripStarAIModel:
             prompt = self._create_prompt(user_data)
             print(f"Generating {user_data['days']}-day FREE itinerary with Groq AI...")
             
-            # Call Groq API
-            response = self.client.chat.completions.create(
-                messages=[
-                    {
-                        "role": "system",
-                        "content": "You are a professional travel planner. You MUST respond with ONLY valid JSON, no markdown, no explanations, no code blocks. Just pure JSON."
-                    },
-                    {
-                        "role": "user",
-                        "content": prompt
-                    }
-                ],
-                model=self.model_name,
-                temperature=0.7,
-                max_tokens=3000,
-                top_p=1
-            )
-            
-            response_text = response.choices[0].message.content.strip()
-            
-            print("AI Response received, parsing...")
-            print(f"Response length: {len(response_text)} characters")
-            
-            # Parse the AI response
-            parsed_data = self._parse_ai_response(response_text)
-            
-            if parsed_data and self._validate_itinerary(parsed_data):
-                print("✓ Successfully generated FREE AI itinerary!")
-                return parsed_data
-            else:
-                print("⚠ Invalid AI response structure, using fallback")
+            # Call Groq API with better error handling
+            try:
+                response = self.client.chat.completions.create(
+                    messages=[
+                        {
+                            "role": "system",
+                            "content": "You are a professional travel planner. You MUST respond with ONLY valid JSON, no markdown, no explanations, no code blocks. Just pure JSON."
+                        },
+                        {
+                            "role": "user",
+                            "content": prompt
+                        }
+                    ],
+                    model=self.model_name,
+                    temperature=0.7,
+                    max_tokens=3000,
+                    top_p=1
+                )
+                
+                response_text = response.choices[0].message.content.strip()
+                
+                print("AI Response received, parsing...")
+                print(f"Response length: {len(response_text)} characters")
+                
+                # Parse the AI response
+                parsed_data = self._parse_ai_response(response_text)
+                
+                if parsed_data and self._validate_itinerary(parsed_data):
+                    print("✓ Successfully generated FREE AI itinerary!")
+                    return parsed_data
+                else:
+                    print("⚠ Invalid AI response structure, using fallback")
+                    return self._create_fallback_itinerary(user_data)
+                    
+            except Exception as api_error:
+                print(f"✗ API call failed: {type(api_error).__name__}: {str(api_error)}")
+                import traceback
+                traceback.print_exc()
                 return self._create_fallback_itinerary(user_data)
             
         except Exception as e:
