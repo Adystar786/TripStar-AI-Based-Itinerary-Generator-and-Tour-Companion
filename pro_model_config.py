@@ -36,27 +36,52 @@ class TripStarProModel:
                 self.client = None
                 return
             
-            # FIXED: Initialize Groq client without proxies parameter
-            self.client = Groq(api_key=self.api_key)
+            # FIXED: Initialize Groq client with better error handling
+            print("Initializing Pro Groq client...")
+            try:
+                # Method 1: Try with just api_key
+                self.client = Groq(api_key=self.api_key)
+                print("✓ Pro Groq client initialized with Method 1")
+            except TypeError as te:
+                print(f"⚠️ Method 1 failed: {te}")
+                # Method 2: Try with explicit kwargs
+                try:
+                    self.client = Groq(**{'api_key': self.api_key})
+                    print("✓ Pro Groq client initialized with Method 2")
+                except Exception as e2:
+                    print(f"⚠️ Method 2 failed: {e2}")
+                    # Method 3: Try importing Groq differently
+                    try:
+                        import groq
+                        self.client = groq.Groq(api_key=self.api_key)
+                        print("✓ Pro Groq client initialized with Method 3")
+                    except Exception as e3:
+                        print(f"❌ All Pro initialization methods failed")
+                        self.client = None
+                        return
+            
             self.model_name = "llama-3.1-8b-instant"
             print(f"Selected PRO model: {self.model_name}")
             
             # Test connection
-            try:
-                test_response = self.client.chat.completions.create(
-                    messages=[{"role": "user", "content": "Hi"}],
-                    model=self.model_name,
-                    max_tokens=5
-                )
-                print("✓ GROQ AI PRO MODEL READY!")
-            except Exception as test_error:
-                print(f"⚠️ API test warning: {test_error}")
-                print("Will attempt to use client anyway...")
+            if self.client:
+                try:
+                    test_response = self.client.chat.completions.create(
+                        messages=[{"role": "user", "content": "Hi"}],
+                        model=self.model_name,
+                        max_tokens=5
+                    )
+                    print("✓ GROQ AI PRO MODEL READY!")
+                except Exception as test_error:
+                    print(f"⚠️ API test warning: {test_error}")
+                    print("Will attempt to use client anyway...")
             
             print("="*60 + "\n")
             
         except Exception as e:
             print(f"✗ PRO MODEL INITIALIZATION FAILED: {e}")
+            import traceback
+            traceback.print_exc()
             self.client = None
     
     def generate_itinerary(self, user_data):
@@ -69,37 +94,46 @@ class TripStarProModel:
             prompt = self._create_pro_prompt(user_data)
             print(f"Generating PRO {user_data['days']}-day itinerary...")
             
-            response = self.client.chat.completions.create(
-                messages=[
-                    {
-                        "role": "system",
-                        "content": """You are an expert travel planner for premium clients. Create highly detailed, 
-                        comprehensive itineraries with booking links and budget optimization tips. 
-                        Respond with ONLY valid JSON, no markdown."""
-                    },
-                    {
-                        "role": "user",
-                        "content": prompt
-                    }
-                ],
-                model=self.model_name,
-                temperature=0.7,
-                max_tokens=5500,
-                top_p=1
-            )
-            
-            response_text = response.choices[0].message.content.strip()
-            parsed_data = self._parse_pro_response(response_text)
-            
-            if parsed_data and self._validate_pro_itinerary(parsed_data):
-                print("✓ Successfully generated PRO itinerary!")
-                return parsed_data
-            else:
-                print("⚠ Invalid PRO response, using enhanced fallback")
+            try:
+                response = self.client.chat.completions.create(
+                    messages=[
+                        {
+                            "role": "system",
+                            "content": """You are an expert travel planner for premium clients. Create highly detailed, 
+                            comprehensive itineraries with booking links and budget optimization tips. 
+                            Respond with ONLY valid JSON, no markdown."""
+                        },
+                        {
+                            "role": "user",
+                            "content": prompt
+                        }
+                    ],
+                    model=self.model_name,
+                    temperature=0.7,
+                    max_tokens=5500,
+                    top_p=1
+                )
+                
+                response_text = response.choices[0].message.content.strip()
+                parsed_data = self._parse_pro_response(response_text)
+                
+                if parsed_data and self._validate_pro_itinerary(parsed_data):
+                    print("✓ Successfully generated PRO itinerary!")
+                    return parsed_data
+                else:
+                    print("⚠ Invalid PRO response, using enhanced fallback")
+                    return self._create_pro_fallback_itinerary(user_data)
+                    
+            except Exception as api_error:
+                print(f"✗ Pro API call failed: {type(api_error).__name__}: {str(api_error)}")
+                import traceback
+                traceback.print_exc()
                 return self._create_pro_fallback_itinerary(user_data)
             
         except Exception as e:
             print(f"✗ Error generating PRO itinerary: {e}")
+            import traceback
+            traceback.print_exc()
             return self._create_pro_fallback_itinerary(user_data)
     
     def _create_pro_prompt(self, user_data):
