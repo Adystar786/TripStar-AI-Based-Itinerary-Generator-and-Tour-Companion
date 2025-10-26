@@ -1660,14 +1660,12 @@ def not_found(error):
 def internal_error(error):
     return jsonify({'error': 'Internal server error'}), 500
 
-# Initialize database
 def init_database():
     """Initialize database tables"""
     with app.app_context():
         try:
             # Import all models to ensure they're registered
-            from models import User, Itinerary, UsageRecord
-            from payment_models import Payment
+            from models import User, Itinerary, UsageRecord, Payment
             
             # Create all tables
             db.create_all()
@@ -1688,10 +1686,11 @@ def init_database():
             import traceback
             traceback.print_exc()
 
+# CRITICAL: Initialize database on startup (not just when running locally)
+print("🔧 Initializing database...")
+init_database()
+
 if __name__ == "__main__":
-    # Initialize database before starting
-    init_database()
-    
     port = int(os.environ.get("PORT", 5000))
     print(f"🚀 Starting TripStar AI on port {port}...")
     print(f"📊 Database: {app.config['SQLALCHEMY_DATABASE_URI'][:30]}...")
