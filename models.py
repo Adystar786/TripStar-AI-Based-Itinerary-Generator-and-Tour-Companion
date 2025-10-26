@@ -1,7 +1,7 @@
 from flask_sqlalchemy import SQLAlchemy
 from flask_login import UserMixin
 from werkzeug.security import generate_password_hash, check_password_hash
-from datetime import datetime
+from datetime import datetime, date
 import json
 
 db = SQLAlchemy()
@@ -19,8 +19,9 @@ class User(UserMixin, db.Model):
     last_login = db.Column(db.DateTime)
     
     # Relationships
-    itineraries = db.relationship('Itinerary', backref='user', lazy=True)
-    usage_records = db.relationship('UsageRecord', backref='user', lazy=True)
+    itineraries = db.relationship('Itinerary', backref='user', lazy=True, cascade='all, delete-orphan')
+    usage_records = db.relationship('UsageRecord', backref='user', lazy=True, cascade='all, delete-orphan')
+    payments = db.relationship('Payment', backref='user', lazy=True, cascade='all, delete-orphan')
     
     def set_password(self, password):
         self.password_hash = generate_password_hash(password)
@@ -29,13 +30,19 @@ class User(UserMixin, db.Model):
         return check_password_hash(self.password_hash, password)
     
     def get_remaining_free_uses(self):
-        today = datetime.utcnow().date()
+        """Get remaining free uses for today"""
+        today = date.today()
+        
         today_uses = UsageRecord.query.filter(
             UsageRecord.user_id == self.id,
             db.func.date(UsageRecord.created_at) == today,
             UsageRecord.plan == 'free'
         ).count()
+        
         return max(0, 3 - today_uses)
+    
+    def __repr__(self):
+        return f'<User {self.email}>'
 
 class Itinerary(db.Model):
     __tablename__ = 'itineraries'
@@ -71,6 +78,9 @@ class Itinerary(db.Model):
     
     def get_itinerary_data(self):
         return json.loads(self.itinerary_data) if self.itinerary_data else {}
+    
+    def __repr__(self):
+        return f'<Itinerary {self.title}>'
 
 class UsageRecord(db.Model):
     __tablename__ = 'usage_records'
@@ -79,4 +89,24 @@ class UsageRecord(db.Model):
     user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
     plan = db.Column(db.String(20))  # 'free', 'pro', 'per_export'
     action = db.Column(db.String(50))  # 'itinerary_generation', 'pdf_export', etc.
+    created_at = db.Column(db.DateTime, default=datetime.utcnow, index=True)
+    
+    def __repr__(self):
+        return f'<UsageRecord {self.action} by User {self.user_id}>'
+
+class Payment(db.Model):
+    __tablename__ = 'payments'
+    
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
+    payment_id = db.Column(db.String(100), unique=True, nullable=False, index=True)
+    plan = db.Column(db.String(20), nullable=False)
+    amount = db.Column(db.Float, nullable=False)
+    status = db.Column(db.String(20), default='pending')  # pending, completed, failed, rejected
+    transaction_id = db.Column(db.String(100))
+    upi_id = db.Column(db.String(100))
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    completed_at = db.Column(db.DateTime)
+    
+    def __repr__(self):
+        return f'<Payment {self.payment_id} - {self.status}>'
