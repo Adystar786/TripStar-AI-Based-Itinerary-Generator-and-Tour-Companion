@@ -6,7 +6,7 @@ import os
 from datetime import datetime, timedelta
 import logging
 import uuid
-from models import db, User, Itinerary, UsageRecord
+from models import db, User, Itinerary, UsageRecord, Payment  # ✅ ADD Payment HERE
 import qrcode
 from io import BytesIO
 import base64
@@ -60,14 +60,6 @@ if AI_AVAILABLE:
 else:
     ai_model = None
     print("⚠️ Running without AI capabilities")
-
-# NOW import Payment model ONCE, after all other imports
-try:
-    from payment_models import Payment
-    print("✅ Payment model imported successfully")
-except ImportError as e:
-    print(f"⚠️ Payment model import error: {e}")
-    Payment = None
 
 app = Flask(__name__)
 
