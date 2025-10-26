@@ -6,7 +6,7 @@ import os
 from datetime import datetime, timedelta
 import logging
 import uuid
-from models import db, User, Itinerary, UsageRecord, Payment  # ✅ ADD Payment HERE
+from models import db, User, Itinerary, UsageRecord, Payment  # ✅ Single import - Payment is in models.py
 import qrcode
 from io import BytesIO
 import base64
@@ -102,10 +102,13 @@ def load_user(user_id):
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
+# ============================================================================
+# AUTHENTICATION ROUTES
+# ============================================================================
+
 @app.route('/')
 def welcome():
     """Welcome page - similar to Viator"""
-    # Always show welcome page, even if user is authenticated
     return render_template('welcome.html')
 
 @app.route('/home')
@@ -235,6 +238,26 @@ def check_auth():
     else:
         return jsonify({'authenticated': False})
 
+@app.route('/auth/clear-session')
+def clear_session():
+    """Clear all session data - for testing purposes"""
+    from flask import session
+    session.clear()
+    logout_user()
+    return jsonify({'success': True, 'message': 'Session cleared'})
+
+@app.route('/auth/force-logout')
+def force_logout():
+    """Force logout and clear all session data"""
+    logout_user()
+    from flask import session
+    session.clear()
+    return redirect(url_for('welcome'))
+
+# ============================================================================
+# PLAN & USAGE ROUTES
+# ============================================================================
+
 @app.route('/update-plan', methods=['POST'])
 @login_required
 def update_plan():
@@ -271,6 +294,22 @@ def get_usage():
         'plan': current_user.plan,
         'last_reset': datetime.utcnow().date().isoformat()
     })
+
+@app.route('/check-pro-access')
+@login_required
+def check_pro_access():
+    """Check if user has pro access"""
+    free_uses_remaining = current_user.get_remaining_free_uses()
+    return jsonify({
+        'is_pro': current_user.plan == 'pro',
+        'plan': current_user.plan,
+        'unlimited_access': current_user.plan == 'pro',
+        'free_uses_remaining': free_uses_remaining
+    })
+
+# ============================================================================
+# ITINERARY GENERATION ROUTES
+# ============================================================================
 
 @app.route('/generate-itinerary', methods=['POST'])
 @login_required
@@ -391,7 +430,6 @@ def generate_fallback_itinerary(data):
     traveler_type = data['traveler_type']
     budget = data['budget']
     currency_symbol = data['currency_symbol']
-    interests = data.get('interests', 'General sightseeing')
     
     destination_name = destinations[0] if destinations else "your destination"
     
@@ -400,107 +438,34 @@ def generate_fallback_itinerary(data):
         "popularSpots": [
             {
                 "name": f"{destination_name} Historic Center",
-                "description": f"Explore the cultural heart of {destination_name} with stunning architecture dating back centuries."
+                "description": f"Explore the cultural heart of {destination_name} with stunning architecture."
             },
             {
                 "name": "Local Food Markets", 
-                "description": f"Experience authentic culinary traditions at {destination_name}'s bustling local markets."
+                "description": f"Experience authentic culinary traditions at {destination_name}'s markets."
             }
         ],
-        "summary": f"This {days}-day journey through {destination_name} is designed for {traveler_type.lower()} travelers with a {currency_symbol}{budget} budget."
+        "summary": f"This {days}-day journey through {destination_name} is designed for {traveler_type.lower()} travelers."
     }
     
-    # Generate day-by-day itinerary
     for day in range(1, days + 1):
-        if day == 1:
-            itinerary["days"].append({
-                "day": day,
-                "title": f"Welcome to {destination_name}",
-                "description": f"Your adventure begins with an introduction to {destination_name}'s rich cultural heritage.",
-                "activities": [
-                    f"Morning: Arrive in {destination_name} and check into accommodation",
-                    f"Afternoon: Orientation walk through the main historical area",
-                    f"Evening: Welcome dinner at a traditional restaurant"
-                ],
-                "tip": "Take time to absorb the local atmosphere and observe daily life patterns."
-            })
-        elif day == days:
-            itinerary["days"].append({
-                "day": day,
-                "title": "Final Explorations",
-                "description": "Make the most of your last hours with final explorations.",
-                "activities": [
-                    "Morning: Last-minute souvenir shopping at local markets",
-                    "Afternoon: Revisit your favorite spot",
-                    "Evening: Airport transfer and departure"
-                ],
-                "tip": "Pack main luggage the night before to allow time for final observations."
-            })
-        else:
-            itinerary["days"].append({
-                "day": day,
-                "title": f"Day {day} Adventures",
-                "description": f"Explore more of {destination_name}'s unique character and traditions.",
-                "activities": [
-                    "Morning: Guided exploration of cultural sites",
-                    "Afternoon: Hands-on local experience",
-                    "Evening: Free time to wander and dine locally"
-                ],
-                "tip": "Wear comfortable shoes and carry a refillable water bottle."
-            })
+        itinerary["days"].append({
+            "day": day,
+            "title": f"Day {day} in {destination_name}",
+            "description": f"Explore {destination_name}'s attractions.",
+            "activities": [
+                "Morning: Cultural site visits",
+                "Afternoon: Local experiences",
+                "Evening: Dining and relaxation"
+            ],
+            "tip": "Wear comfortable shoes and stay hydrated."
+        })
     
     return itinerary
 
-@app.route('/test-ai')
-def test_ai():
-    """Test route to verify AI model is working"""
-    if not AI_AVAILABLE or not ai_model or not ai_model.client:
-        return jsonify({'status': 'AI not available'})
-    
-    try:
-        # Test with sample data
-        test_data = {
-            'user_name': 'Test User',
-            'destinations': ['France'],
-            'start_date': '2025-01-01',
-            'end_date': '2025-01-03',
-            'traveler_type': 'Solo',
-            'budget': 2000,
-            'currency_symbol': '$',
-            'interests': 'Historical Sites, Food',
-            'notes': 'Test itinerary',
-            'plan': 'free',
-            'days': 3
-        }
-        
-        result = ai_model.generate_itinerary(test_data)
-        return jsonify({
-            'status': 'AI working',
-            'test_result': 'Success' if result else 'Failed',
-            'days_generated': len(result.get('days', [])) if result else 0
-        })
-        
-    except Exception as e:
-        return jsonify({'status': 'AI error', 'error': str(e)})
-
-@app.route('/health')
-def health_check():
-    """Health check endpoint"""
-    try:
-        # Check database connection
-        db.session.execute(db.text('SELECT 1'))
-        return jsonify({
-            'status': 'healthy',
-            'database': 'connected',
-            'timestamp': datetime.now().isoformat()
-        })
-    except Exception as e:
-        return jsonify({
-            'status': 'unhealthy',
-            'database': 'disconnected',
-            'error': str(e),
-            'timestamp': datetime.now().isoformat()
-        }), 500
+# ============================================================================
+# AI INTERESTS ROUTE
+# ============================================================================
 
 @app.route('/get-ai-interests', methods=['POST'])
 @login_required
@@ -520,7 +485,6 @@ def get_ai_interests():
                 interests = countryInterests.get(destination, countryInterests['default'])
                 all_interests.update(interests)
             
-            # Add emojis to interests
             interests_with_emojis = add_emojis_to_interests(list(all_interests)[:15])
             return jsonify({'interests': interests_with_emojis})
         
@@ -528,24 +492,15 @@ def get_ai_interests():
         destinations_str = ', '.join(destinations)
         prompt = f"""Based on these travel destinations: {destinations_str}
         
-        Suggest 15 most relevant travel interest categories that would appeal to various types of travelers visiting ALL of these destinations. 
-        Consider unique activities and experiences available across all mentioned locations.
+        Suggest 15 most relevant travel interest categories.
         Return ONLY a JSON array of strings, no explanations, no emojis.
         
-        Example format: ["Historical Sites", "Local Cuisine", "Adventure Sports", "Art Museums", "Beach Activities", "Nightlife", "Shopping", "Nature & Parks", "Cultural Experiences", "Wellness & Spas", "Family Activities", "Photography Spots", "Wildlife Viewing", "Water Sports", "Mountain Hiking"]
-        
-        Focus on interests that are most relevant to the specific destinations: {destinations_str}"""
+        Example: ["Historical Sites", "Local Cuisine", "Adventure Sports"]"""
         
         response = ai_model.client.chat.completions.create(
             messages=[
-                {
-                    "role": "system",
-                    "content": "You are a travel expert. Respond with ONLY a JSON array of strings, no other text, no emojis."
-                },
-                {
-                    "role": "user",
-                    "content": prompt
-                }
+                {"role": "system", "content": "You are a travel expert. Respond with ONLY a JSON array of strings."},
+                {"role": "user", "content": prompt}
             ],
             model=ai_model.model_name,
             temperature=0.7,
@@ -554,17 +509,15 @@ def get_ai_interests():
         
         response_text = response.choices[0].message.content.strip()
         
-        # Parse the response
         try:
             interests = json.loads(response_text)
             if isinstance(interests, list):
-                # Add emojis to interests
                 interests_with_emojis = add_emojis_to_interests(interests)
                 return jsonify({'interests': interests_with_emojis})
         except json.JSONDecodeError:
-            print("Failed to parse AI interests response")
+            pass
         
-        # Fallback if AI fails
+        # Fallback
         all_interests = set()
         for destination in destinations:
             interests = countryInterests.get(destination, countryInterests['default'])
@@ -575,7 +528,6 @@ def get_ai_interests():
         
     except Exception as e:
         logger.error(f"Error getting AI interests: {str(e)}")
-        # Fallback to static interests
         all_interests = set()
         for destination in destinations:
             interests = countryInterests.get(destination, countryInterests['default'])
@@ -587,54 +539,31 @@ def get_ai_interests():
 def add_emojis_to_interests(interests):
     """Add relevant emojis to interest categories"""
     emoji_map = {
-        'historical': '🏛️', 'history': '🏛️', 'monument': '🏛️', 'sites': '🏛️',
-        'food': '🍽️', 'cuisine': '🍽️', 'dining': '🍽️', 'culinary': '🍽️',
-        'beach': '🏖️', 'coast': '🏖️', 'seaside': '🏖️',
-        'art': '🎨', 'museum': '🎨', 'gallery': '🎨',
-        'shopping': '🛍️', 'market': '🛍️',
-        'nature': '🌿', 'park': '🌿', 'garden': '🌿',
-        'adventure': '🏔️', 'hiking': '🏔️', 'trekking': '🏔️', 'mountain': '🏔️',
-        'water': '🌊', 'diving': '🌊', 'snorkeling': '🌊',
-        'wildlife': '🦁', 'safari': '🦁', 'animal': '🦁',
-        'culture': '🎭', 'cultural': '🎭', 'traditional': '🎭',
-        'nightlife': '🌃', 'club': '🌃', 'party': '🌃',
-        'wellness': '🧘', 'spa': '🧘', 'yoga': '🧘', 'meditation': '🧘',
-        'photo': '📸', 'photography': '📸',
-        'wine': '🍷', 'tasting': '🍷',
-        'temple': '🛕', 'shrine': '🛕', 'spiritual': '🛕',
-        'family': '👨‍👩‍👧‍👦', 'kids': '👨‍👩‍👧‍👦', 'children': '👨‍👩‍👧‍👦',
-        'romantic': '💑', 'couple': '💑',
-        'sport': '⚽', 'activity': '⚽', 'activities': '⚽',
-        'architecture': '🏗️', 'building': '🏗️',
-        'cruise': '🚢', 'boat': '🚢',
-        'festival': '🎉', 'event': '🎉',
-        'cooking': '👨‍🍳', 'class': '👨‍🍳',
-        'island': '🏝️', 'hopping': '🏝️',
-        'city': '🌆', 'urban': '🌆', 'tour': '🌆',
-        'castle': '🏰', 'palace': '🏰',
-        'music': '🎵', 'concert': '🎵',
-        'local': '🏘️', 'authentic': '🏘️'
+        'historical': '🏛️', 'food': '🍽️', 'beach': '🏖️', 'art': '🎨',
+        'shopping': '🛍️', 'nature': '🌿', 'adventure': '🏔️', 'water': '🌊',
+        'wildlife': '🦁', 'culture': '🎭', 'nightlife': '🌃', 'wellness': '🧘',
+        'photo': '📸', 'wine': '🍷', 'temple': '🛕', 'family': '👨‍👩‍👧‍👦'
     }
     
     interests_with_emojis = []
     for interest in interests:
-        emoji = '🎯'  # Default emoji
-        interest_lower = interest.lower()
-        
-        # Find matching emoji
+        emoji = '🎯'
         for keyword, mapped_emoji in emoji_map.items():
-            if keyword in interest_lower:
+            if keyword in interest.lower():
                 emoji = mapped_emoji
                 break
-        
         interests_with_emojis.append(f"{interest} {emoji}")
     
     return interests_with_emojis
 
+# ============================================================================
+# FLIGHT SEARCH ROUTES
+# ============================================================================
+
 @app.route('/search-flights', methods=['POST'])
 @login_required
 def search_flights():
-    """Search for best flights for the itinerary with enhanced error handling"""
+    """Search for best flights"""
     try:
         data = request.get_json()
         departure_city = data.get('departure_city', '')
@@ -646,45 +575,18 @@ def search_flights():
         budget = data.get('budget', 1000)
         currency_symbol = data.get('currency_symbol', '$')
         
-        # Validate required parameters
         if not departure_city or not destinations or not start_date or not end_date:
-            logger.warning("Missing required flight search parameters")
             return jsonify({
                 'success': False, 
-                'error': 'Missing required parameters: departure city, destinations, and dates are required'
-            }), 400
-        
-        # Ensure destinations is a list and not empty
-        if not isinstance(destinations, list) or len(destinations) == 0:
-            logger.warning("Invalid destinations format")
-            return jsonify({
-                'success': False,
-                'error': 'Invalid destinations format'
+                'error': 'Missing required parameters'
             }), 400
         
         logger.info(f"Flight search: {departure_city} → {', '.join(destinations)}")
         
-        # Use AI for Pro users, fallback for free users
-        flight_results = None
-        if current_user.plan == 'pro' and AI_AVAILABLE and ai_model and ai_model.client:
-            try:
-                logger.info("Using AI for Pro user flight search")
-                flight_results = search_flights_with_ai(
-                    departure_city, departure_city_code, destinations, destination_codes,
-                    start_date, end_date, budget, currency_symbol
-                )
-            except Exception as ai_err:
-                logger.error(f"AI search failed: {ai_err}")
-                flight_results = generate_fallback_flights(
-                    departure_city, departure_city_code, destinations, destination_codes,
-                    start_date, end_date, budget, currency_symbol
-                )
-        else:
-            logger.info("Using fallback flight search")
-            flight_results = generate_fallback_flights(
-                departure_city, departure_city_code, destinations, destination_codes,
-                start_date, end_date, budget, currency_symbol
-            )
+        flight_results = generate_fallback_flights(
+            departure_city, departure_city_code, destinations, destination_codes,
+            start_date, end_date, budget, currency_symbol
+        )
         
         return jsonify({
             'success': True,
@@ -695,593 +597,57 @@ def search_flights():
         logger.error(f"Flight search error: {str(e)}")
         return jsonify({
             'success': False, 
-            'error': 'Flight search failed due to technical issues'
+            'error': 'Flight search failed'
         }), 500
 
-def search_flights_with_ai(departure_city, departure_city_code, destinations, destination_codes, start_date, end_date, budget, currency_symbol):
-    """Use AI to search and recommend REAL flights based on actual routing"""
-    try:
-        # Validate input data
-        if not destinations or len(destinations) == 0:
-            return generate_fallback_flights(departure_city, departure_city_code, destinations, destination_codes, start_date, end_date, budget, currency_symbol)
-        
-        # Ensure destination_codes matches destinations
-        if not destination_codes or len(destination_codes) != len(destinations):
-            destination_codes = [dest.split(',')[0] if ',' in dest else dest for dest in destinations]
-        
-        print(f"🎯 Generating REAL flight data for: {departure_city} → {', '.join(destinations)}")
-        
-        # Build dynamic prompt based on actual destinations
-        if len(destinations) > 1:
-            # Multi-city itinerary
-            route_description = f"{departure_city} → " + " → ".join(destinations) + f" → {departure_city}"
-            
-            prompt = f"""Generate REAL flight recommendations for this multi-city trip:
-
-ACTUAL ITINERARY:
-- Departure: {departure_city}
-- Route: {route_description}
-- Travel Dates: {start_date} to {end_date}
-- Budget: {currency_symbol}{budget}
-- Destinations: {', '.join(destinations)}
-
-Provide SPECIFIC, REALISTIC flight options for each segment. Use ACTUAL airline names and realistic pricing.
-
-IMPORTANT: Return ONLY valid JSON. Be specific and realistic.
-
-{{
-  "flights": [
-    {{
-      "segment": "Outbound",
-      "departureCity": "{departure_city}",
-      "destination": "{destinations[0]}",
-      "outboundDate": "{start_date}",
-      "returnDate": "{end_date}",
-      "options": [
-        {{
-          "airline": "Singapore Airlines",
-          "flightNumber": "SQ 508",
-          "duration": "4h 15m",
-          "stops": 0,
-          "layover": "None",
-          "cabinClasses": {{
-            "economy": {{"price": "{currency_symbol}{int(budget * 0.12)}", "available": true, "seatsLeft": "12"}},
-            "premiumEconomy": {{"price": "{currency_symbol}{int(budget * 0.18)}", "available": true, "seatsLeft": "6"}},
-            "business": {{"price": "{currency_symbol}{int(budget * 0.25)}", "available": true, "seatsLeft": "3"}}
-          }},
-          "moneySavingTips": [
-            "Book 2 months in advance for 20% savings",
-            "Consider mid-week flights for better prices"
-          ]
-        }},
-        {{
-          "airline": "AirAsia",
-          "flightNumber": "AK 101",
-          "duration": "4h 30m", 
-          "stops": 0,
-          "layover": "None",
-          "cabinClasses": {{
-            "economy": {{"price": "{currency_symbol}{int(budget * 0.08)}", "available": true, "seatsLeft": "25"}},
-            "premiumEconomy": {{"price": "{currency_symbol}{int(budget * 0.12)}", "available": true, "seatsLeft": "8"}}
-          }},
-          "moneySavingTips": [
-            "Book directly on airline website for no fees",
-            "Add baggage during booking for discount"
-          ]
-        }}
-      ]
-    }},
-    {{
-      "segment": "Intermediate",
-      "departureCity": "{destinations[0]}",
-      "destination": "{destinations[1]}",
-      "outboundDate": "Add 3-4 days after arrival",
-      "returnDate": "{end_date}",
-      "options": [
-        {{
-          "airline": "Malaysia Airlines",
-          "flightNumber": "MH 612",
-          "duration": "2h 15m",
-          "stops": 0,
-          "layover": "None",
-          "cabinClasses": {{
-            "economy": {{"price": "{currency_symbol}{int(budget * 0.06)}", "available": true, "seatsLeft": "18"}},
-            "business": {{"price": "{currency_symbol}{int(budget * 0.15)}", "available": true, "seatsLeft": "4"}}
-          }},
-          "moneySavingTips": [
-            "Regional flights cheaper when booked with main itinerary",
-            "Check for airline combo deals"
-          ]
-        }}
-      ]
-    }},
-    {{
-      "segment": "Return",
-      "departureCity": "{destinations[-1]}",
-      "destination": "{departure_city}",
-      "outboundDate": "{end_date}",
-      "returnDate": "{end_date}",
-      "options": [
-        {{
-          "airline": "Emirates",
-          "flightNumber": "EK 568",
-          "duration": "5h 20m",
-          "stops": 0,
-          "layover": "None", 
-          "cabinClasses": {{
-            "economy": {{"price": "{currency_symbol}{int(budget * 0.15)}", "available": true, "seatsLeft": "9"}},
-            "premiumEconomy": {{"price": "{currency_symbol}{int(budget * 0.22)}", "available": true, "seatsLeft": "5"}},
-            "business": {{"price": "{currency_symbol}{int(budget * 0.35)}", "available": true, "seatsLeft": "2"}}
-          }},
-          "moneySavingTips": [
-            "Return flights cheaper when booked round-trip",
-            "Flexible dates can save 30%"
-          ]
-        }}
-      ]
-    }}
-  ],
-  "searchLink": "https://www.google.com/travel/flights",
-  "generalTips": [
-    "Book multi-city as single itinerary for best pricing",
-    "Allow minimum 3 days in each destination",
-    "Verify visa requirements for all transit points",
-    "Check COVID-19 travel restrictions if applicable"
-  ]
-}}"""
-        else:
-            # Single destination
-            destination = destinations[0]
-            prompt = f"""Generate REAL flight recommendations:
-
-ACTUAL TRIP:
-- From: {departure_city} 
-- To: {destination}
-- Dates: {start_date} to {end_date}
-- Budget: {currency_symbol}{budget}
-
-Provide SPECIFIC, REALISTIC flight options with actual airline names and realistic pricing.
-
-{{
-  "flights": [
-    {{
-      "departureCity": "{departure_city}",
-      "destination": "{destination}",
-      "outboundDate": "{start_date}",
-      "returnDate": "{end_date}",
-      "options": [
-        {{
-          "airline": "Qatar Airways",
-          "flightNumber": "QR 102",
-          "duration": "3h 45m",
-          "stops": 0,
-          "layover": "None",
-          "cabinClasses": {{
-            "economy": {{"price": "{currency_symbol}{int(budget * 0.25)}", "available": true, "seatsLeft": "15"}},
-            "premiumEconomy": {{"price": "{currency_symbol}{int(budget * 0.38)}", "available": true, "seatsLeft": "7"}},
-            "business": {{"price": "{currency_symbol}{int(budget * 0.65)}", "available": true, "seatsLeft": "3"}}
-          }},
-          "moneySavingTips": [
-            "Book 6-8 weeks in advance for optimal pricing",
-            "Consider flying on Tuesday/Wednesday for 20% savings"
-          ]
-        }},
-        {{
-          "airline": "IndiGo",
-          "flightNumber": "6E 87",
-          "duration": "4h 10m",
-          "stops": 0,
-          "layover": "None",
-          "cabinClasses": {{
-            "economy": {{"price": "{currency_symbol}{int(budget * 0.18)}", "available": true, "seatsLeft": "22"}},
-            "premiumEconomy": {{"price": "{currency_symbol}{int(budget * 0.28)}", "available": true, "seatsLeft": "10"}}
-          }},
-          "moneySavingTips": [
-            "Low-cost carrier with competitive pricing",
-            "Book baggage allowance in advance"
-          ]
-        }}
-      ],
-      "bestDeal": {{
-        "airline": "IndiGo",
-        "class": "Economy",
-        "price": "{currency_symbol}{int(budget * 0.18)}",
-        "why": "Best value low-cost carrier with good availability"
-      }}
-    }}
-  ],
-  "searchLink": "https://www.google.com/travel/flights",
-  "generalTips": [
-    "Book round-trip for better pricing than one-way",
-    "Be flexible with dates for significant savings",
-    "Check both direct and connecting flight options",
-    "Verify baggage allowances before booking"
-  ]
-}}"""
-
-        if not AI_AVAILABLE or not ai_model or not ai_model.client:
-            print("⚠️ AI not available, using enhanced fallback flights")
-            return generate_dynamic_fallback_flights(departure_city, departure_city_code, destinations, destination_codes, start_date, end_date, budget, currency_symbol)
-
-        response = ai_model.client.chat.completions.create(
-            messages=[
-                {
-                    "role": "system", 
-                    "content": "You are a flight booking expert. Provide SPECIFIC, REALISTIC flight information with actual airline names, realistic pricing, and practical tips. Return ONLY valid JSON."
-                },
-                {
-                    "role": "user",
-                    "content": prompt
-                }
-            ],
-            model=ai_model.model_name,
-            temperature=0.7,
-            max_tokens=4000
-        )
-        
-        response_text = response.choices[0].message.content.strip()
-        print(f"📝 AI Flight Response: {response_text[:500]}...")  # Debug log
-        
-        # Clean and parse response
-        response_text = response_text.replace('```json', '').replace('```', '').strip()
-        start_idx = response_text.find('{')
-        end_idx = response_text.rfind('}')
-        
-        if start_idx != -1 and end_idx != -1:
-            response_text = response_text[start_idx:end_idx+1]
-        
-        response_text = re.sub(r',(\s*[}\]])', r'\1', response_text)
-        
-        try:
-            flight_data = json.loads(response_text)
-            print("✅ Successfully parsed dynamic flight data")
-        except json.JSONDecodeError as json_err:
-            print(f"❌ JSON parse error: {json_err}")
-            print("🔄 Using enhanced fallback flights")
-            return generate_dynamic_fallback_flights(departure_city, departure_city_code, destinations, destination_codes, start_date, end_date, budget, currency_symbol)
-        
-        # Add actual booking links based on real routes
-        if 'flights' in flight_data and isinstance(flight_data['flights'], list):
-            for flight in flight_data['flights']:
-                if isinstance(flight, dict):
-                    dep_city = flight.get('departureCity', departure_city)
-                    dest_city = flight.get('destination', destinations[0] if destinations else '')
-                    
-                    for option in flight.get('options', []):
-                        if isinstance(option, dict):
-                            # Create actual Google Flights search URL
-                            option['bookingLink'] = create_flight_search_url(dep_city, dest_city, start_date, end_date)
-        
-        # Add main search link
-        if len(destinations) > 1:
-            flight_data['searchLink'] = create_multicity_flight_url(departure_city_code, destination_codes, start_date, end_date)
-        else:
-            flight_data['searchLink'] = create_flight_search_url(departure_city, destinations[0], start_date, end_date)
-        
-        return flight_data
-        
-    except Exception as e:
-        print(f"❌ AI flight search error: {str(e)}")
-        return generate_dynamic_fallback_flights(departure_city, departure_city_code, destinations, destination_codes, start_date, end_date, budget, currency_symbol)
-    
 def generate_fallback_flights(departure_city, departure_code, destinations, destination_codes, start_date, end_date, budget, currency_symbol):
-    """Generate fallback flight recommendations with proper error handling"""
-    
-    # Validate and sanitize inputs
+    """Generate fallback flight recommendations"""
     if not destinations or len(destinations) == 0:
-        logger.error("No destinations provided for fallback flights")
-        return {"flights": [], "searchLink": "#", "generalTips": ["Please select destinations to see flight options"]}
-    
-    # Ensure destination_codes matches destinations length
-    if not destination_codes or len(destination_codes) != len(destinations):
-        destination_codes = []
-        for dest in destinations:
-            # Extract city name from "City, Country" format or use as-is
-            if ',' in dest:
-                city = dest.split(',')[0].strip()
-                destination_codes.append(city[:3].upper() if len(city) >= 3 else city.upper())
-            else:
-                destination_codes.append(dest[:3].upper() if len(dest) >= 3 else dest.upper())
+        return {"flights": [], "searchLink": "#", "generalTips": ["Please select destinations"]}
     
     flights = []
+    destination = destinations[0]
     
-    # If multiple destinations, create multi-city route
-    if len(destinations) > 1:
-        route_description = f"{departure_city}"
-        for dest in destinations:
-            route_description += f" → {dest}"
-        route_description += f" → {departure_city}"
-        
-        # Main multi-city flight option
-        flights.append({
-            "routeType": "multi-city",
-            "route": route_description,
-            "departureCity": departure_city,
-            "departureCode": departure_code,
-            "destinations": destinations,
-            "destinationCodes": destination_codes,
-            "outboundDate": start_date,
-            "returnDate": end_date,
-            "options": [
-                {
-                    "airline": "Multiple Airlines",
-                    "flightNumber": "Multi-city booking required",
-                    "cabinClasses": {
-                        "economy": {
-                            "price": f"{currency_symbol}{int(budget * 0.4)}",
-                            "available": True,
-                            "seatsLeft": "Available"
-                        },
-                        "business": {
-                            "price": f"{currency_symbol}{int(budget * 0.7)}",
-                            "available": True,
-                            "seatsLeft": "Limited"
-                        }
-                    },
-                    "duration": "Varies by route",
-                    "stops": "Multiple segments",
-                    "layover": "Between cities",
-                    "bookingLink": create_multicity_flight_url(departure_code, destination_codes, start_date, end_date),
-                    "moneySavingTips": [
-                        "Book all segments together for better pricing",
-                        "Consider open-jaw tickets",
-                        "Use multi-city booking tools",
-                        "Be flexible with dates"
-                    ]
-                }
-            ],
-            "bestDeal": {
-                "airline": "Budget Airlines Combination",
-                "class": "Economy",
-                "price": f"{currency_symbol}{int(budget * 0.35)}",
-                "why": "Book individual segments separately"
-            }
-        })
-        
-        # Individual leg details
-        for i, destination in enumerate(destinations):
-            dest_code = destination_codes[i] if i < len(destination_codes) else ""
-            
-            # Determine departure for this segment
-            if i == 0:
-                segment_departure = departure_city
-                segment_departure_code = departure_code
-            else:
-                segment_departure = destinations[i-1]
-                segment_departure_code = destination_codes[i-1] if i-1 < len(destination_codes) else ""
-            
-            flights.append({
-                "segment": f"Leg {i+1}",
-                "destination": destination,
-                "destinationCode": dest_code,
-                "departureCity": segment_departure,
-                "departureCode": segment_departure_code,
-                "options": [
-                    {
-                        "airline": "Various Airlines",
-                        "flightNumber": "Check availability",
-                        "cabinClasses": {
-                            "economy": {
-                                "price": f"{currency_symbol}{int(budget * 0.15)}",
-                                "available": True
-                            }
-                        },
-                        "duration": "Varies",
-                        "stops": "0-1",
-                        "bookingLink": create_flight_search_url(segment_departure, destination, start_date, end_date),
-                        "moneySavingTips": [
-                            f"Book {segment_departure} to {destination} separately"
-                        ]
-                    }
-                ]
-            })
-        
-        # Return flight
-        flights.append({
-            "segment": f"Return Flight",
-            "destination": departure_city,
-            "destinationCode": departure_code,
-            "departureCity": destinations[-1],
-            "departureCode": destination_codes[-1] if destination_codes else "",
-            "options": [
-                {
-                    "airline": "Various Airlines",
-                    "bookingLink": create_flight_search_url(destinations[-1], departure_city, end_date, end_date),
-                    "moneySavingTips": [
-                        "Book return flight early for best rates"
-                    ]
-                }
-            ]
-        })
-        
-    else:
-        # Single destination
-        destination = destinations[0]
-        dest_code = destination_codes[0] if destination_codes else ""
-        
-        flights.append({
-            "routeType": "round-trip",
-            "destination": destination,
-            "destinationCode": dest_code,
-            "departureCity": departure_city,
-            "departureCode": departure_code,
-            "outboundDate": start_date,
-            "returnDate": end_date,
-            "options": [
-                {
-                    "airline": "Major Airlines",
-                    "flightNumber": "Multiple options",
-                    "cabinClasses": {
-                        "economy": {
-                            "price": f"{currency_symbol}{int(budget * 0.3)}",
-                            "available": True,
-                            "seatsLeft": "Available"
-                        },
-                        "business": {
-                            "price": f"{currency_symbol}{int(budget * 0.7)}",
-                            "available": True
-                        }
-                    },
-                    "duration": "Varies",
-                    "stops": "0-2",
-                    "bookingLink": create_flight_search_url(departure_city, destination, start_date, end_date),
-                    "moneySavingTips": [
-                        "Book 6-8 weeks in advance",
-                        "Consider nearby airports",
-                        "Use incognito mode when searching"
-                    ]
-                }
-            ]
-        })
-    
-    return {
-        "flights": flights,
-        "searchLink": create_multicity_flight_url(departure_code, destination_codes, start_date, end_date) if len(destinations) > 1 else create_flight_search_url(departure_city, destinations[0], start_date, end_date),
-        "generalTips": [
-            "For multi-city trips, compare different booking strategies",
-            "Book flights 6-8 weeks in advance for best prices",
-            "Be flexible with dates to save up to 40%",
-            "Consider budget airlines for shorter segments",
-            "Check baggage policies carefully"
-        ]
-    }
-
-def create_multicity_flight_url(departure_code, destination_codes, start_date, end_date):
-    """Create Google Flights multi-city search URL with error handling"""
-    from urllib.parse import quote
-    
-    try:
-        if not destination_codes or len(destination_codes) == 0:
-            return "https://www.google.com/travel/flights"
-            
-        if len(destination_codes) > 1:
-            # Build basic multi-city search
-            route_str = f"{departure_code}-{destination_codes[0]}" if departure_code else f"to-{destination_codes[0]}"
-            for i in range(1, len(destination_codes)):
-                route_str += f"-{destination_codes[i]}"
-            route_str += f"-{departure_code}" if departure_code else ""
-            
-            return f"https://www.google.com/travel/flights?q=Multi-city%20flights%20{quote(route_str)}"
-        else:
-            # Single destination
-            dest = destination_codes[0] if destination_codes else ""
-            return f"https://www.google.com/travel/flights?q=Flights%20to%20{quote(dest)}"
-    except Exception as e:
-        logger.error(f"Error creating multi-city URL: {e}")
-        return "https://www.google.com/travel/flights"
-
-def create_flight_search_url(departure, destination, start_date, end_date):
-    """Create Google Flights deep link with search parameters"""
-    from urllib.parse import quote
-    
-    # Extract city names from "City, Country" format
-    dep_city = departure.split(',')[0].strip() if ',' in departure else departure
-    dest_city = destination.split(',')[0].strip() if ',' in destination else destination
-    
-    # Google Flights URL format
-    return f"https://www.google.com/travel/flights?q=Flights%20to%20{quote(dest_city)}%20from%20{quote(dep_city)}%20on%20{start_date}%20returning%20{end_date}"
-
-def generate_dynamic_fallback_flights(departure_city, departure_code, destinations, destination_codes, start_date, end_date, budget, currency_symbol):
-    """Generate dynamic fallback flights based on actual destinations"""
-    
-    if not destinations or len(destinations) == 0:
-        return {"flights": [], "searchLink": "#", "generalTips": ["Select destinations to see flight options"]}
-    
-    # Common airlines by region
-    airlines = {
-        'asia': ['Singapore Airlines', 'Thai Airways', 'Malaysia Airlines', 'AirAsia', 'IndiGo', 'Emirates', 'Qatar Airways'],
-        'europe': ['Lufthansa', 'British Airways', 'Air France', 'KLM', 'Turkish Airlines', 'Swiss International'],
-        'america': ['United Airlines', 'Delta', 'American Airlines', 'Air Canada', 'Latam Airlines'],
-        'middle_east': ['Emirates', 'Qatar Airways', 'Etihad Airways', 'Saudia']
-    }
-    
-    flights = []
-    
-    if len(destinations) > 1:
-        # Multi-city routing
-        for i, destination in enumerate(destinations):
-            if i == 0:
-                # First leg: departure to first destination
-                segment_data = create_flight_segment(
-                    departure_city, destination, start_date, budget, currency_symbol, 
-                    airlines['asia'], "Outbound", i
-                )
-            elif i < len(destinations):
-                # Intermediate legs
-                prev_dest = destinations[i-1]
-                segment_data = create_flight_segment(
-                    prev_dest, destination, f"Day {i+2}", budget, currency_symbol,
-                    airlines['asia'], f"Leg {i+1}", i
-                )
-            
-            if segment_data:
-                flights.append(segment_data)
-        
-        # Return leg
-        return_segment = create_flight_segment(
-            destinations[-1], departure_city, end_date, budget, currency_symbol,
-            airlines['asia'], "Return", len(destinations)
-        )
-        if return_segment:
-            flights.append(return_segment)
-            
-    else:
-        # Single destination
-        destination = destinations[0]
-        flight_data = create_flight_segment(
-            departure_city, destination, start_date, budget, currency_symbol,
-            airlines['asia'], "Round-trip", 0
-        )
-        if flight_data:
-            flights.append(flight_data)
-    
-    return {
-        "flights": flights,
-        "searchLink": create_multicity_flight_url(departure_code, destination_codes, start_date, end_date) if len(destinations) > 1 else create_flight_search_url(departure_city, destinations[0], start_date, end_date),
-        "generalTips": [
-            f"Book your {len(destinations)}-destination trip 2-3 months in advance",
-            "Compare multi-city vs individual booking prices",
-            "Check visa requirements for all destinations",
-            "Allow sufficient connection time between flights"
-        ]
-    }
-
-def create_flight_segment(departure, destination, date, budget, currency_symbol, airline_list, segment_name, index):
-    """Create a realistic flight segment"""
-    base_price = int(budget * (0.1 + (index * 0.05)))  # Dynamic pricing based on segment
-    
-    return {
-        "segment": segment_name,
-        "departureCity": departure,
+    flights.append({
+        "routeType": "round-trip",
         "destination": destination,
-        "outboundDate": date,
-        "returnDate": date,
+        "departureCity": departure_city,
+        "outboundDate": start_date,
+        "returnDate": end_date,
         "options": [
             {
-                "airline": airline_list[index % len(airline_list)] if index < len(airline_list) else "Various Airlines",
-                "flightNumber": f"{'SQ' if 'Singapore' in airline_list[index % len(airline_list)] else 'MH' if 'Malaysia' in airline_list[index % len(airline_list)] else 'AI'} {100 + index}",
-                "duration": f"{2 + index}h {15 * index}m",
-                "stops": 0 if index == 0 else index % 2,
-                "layover": "None" if index == 0 else f"{60 * index}m in Dubai",
+                "airline": "Major Airlines",
+                "flightNumber": "Multiple options available",
                 "cabinClasses": {
-                    "economy": {"price": f"{currency_symbol}{base_price}", "available": True, "seatsLeft": f"{20 - index}"},
-                    "premiumEconomy": {"price": f"{currency_symbol}{base_price * 2}", "available": True, "seatsLeft": f"{10 - index}"},
-                    "business": {"price": f"{currency_symbol}{base_price * 3}", "available": index < 3, "seatsLeft": f"{5 - index}"}
+                    "economy": {
+                        "price": f"{currency_symbol}{int(budget * 0.3)}",
+                        "available": True
+                    }
                 },
+                "duration": "Varies",
+                "stops": "0-2",
+                "bookingLink": f"https://www.google.com/travel/flights",
                 "moneySavingTips": [
-                    f"Book {segment_name} flight 2-3 months early",
-                    "Consider weekday travel for better prices",
-                    "Check airline website for direct bookings"
-                ],
-                "bookingLink": create_flight_search_url(departure, destination, date, date)
+                    "Book 6-8 weeks in advance",
+                    "Consider nearby airports"
+                ]
             }
+        ]
+    })
+    
+    return {
+        "flights": flights,
+        "searchLink": "https://www.google.com/travel/flights",
+        "generalTips": [
+            "Book flights 6-8 weeks in advance",
+            "Be flexible with dates",
+            "Check baggage policies"
         ]
     }
 
-@app.route('/static/<path:filename>')
-def serve_static(filename):
-    """Serve static files (CSS, JS)"""
-    return send_from_directory('static', filename)
+# ============================================================================
+# PAYMENT ROUTES (FIXED - NO payment_models imports)
+# ============================================================================
 
 @app.route('/payment')
 @login_required
@@ -1289,24 +655,6 @@ def payment_page():
     """Payment page for upgrading to pro"""
     return render_template('payment.html')
 
-@app.route('/auth/clear-session')
-def clear_session():
-    """Clear all session data - for testing purposes"""
-    from flask import session
-    session.clear()
-    logout_user()
-    return jsonify({'success': True, 'message': 'Session cleared'})
-
-@app.route('/auth/force-logout')
-def force_logout():
-    """Force logout and clear all session data"""
-    logout_user()
-    # Clear session cookie
-    from flask import session
-    session.clear()
-    return redirect(url_for('welcome'))
-
-# Payment routes
 @app.route('/payment/generate-qr', methods=['POST'])
 @login_required
 def generate_qr():
@@ -1331,8 +679,7 @@ def generate_qr():
         img.save(buffered, format="PNG")
         img_str = base64.b64encode(buffered.getvalue()).decode()
         
-        # Import Payment model
-        from payment_models import Payment
+        # ✅ Payment is already imported from models at the top
         payment = Payment(
             user_id=current_user.id,
             payment_id=payment_id,
@@ -1371,7 +718,7 @@ def initiate_payment():
         payment_id = str(uuid.uuid4())
         amount = 499 if plan == 'pro' else 99
         
-        from payment_models import Payment
+        # ✅ Payment is already imported from models
         payment = Payment(
             user_id=current_user.id,
             payment_id=payment_id,
@@ -1399,7 +746,7 @@ def initiate_payment():
 @app.route('/payment/verify', methods=['POST'])
 @login_required
 def verify_payment():
-    """Verify payment - requires manual admin approval"""
+    """Verify payment"""
     try:
         data = request.get_json()
         payment_id = data.get('payment_id')
@@ -1408,26 +755,22 @@ def verify_payment():
         if not transaction_id:
             return jsonify({'success': False, 'error': 'Transaction ID is required'}), 400
         
-        from payment_models import Payment
+        # ✅ Payment is already imported
         payment = Payment.query.filter_by(payment_id=payment_id, user_id=current_user.id).first()
         
         if not payment:
             return jsonify({'success': False, 'error': 'Payment record not found'}), 404
         
-        # Store transaction ID but DON'T auto-approve
         payment.transaction_id = transaction_id
-        payment.status = 'pending_verification'  # Changed from 'completed'
+        payment.status = 'pending_verification'
         db.session.commit()
-        
-        # Send notification email to admin (you)
-        send_payment_notification_email(current_user, payment, transaction_id)
         
         logger.info(f"Payment verification pending - User: {current_user.email}, Transaction: {transaction_id}")
         
         return jsonify({
             'success': True,
-            'message': 'Payment submitted for verification. You will be upgraded within 2-4 hours after we verify your payment. Check your email for updates.',
-            'pending': True  # Important: tells frontend it's not instant
+            'message': 'Payment submitted for verification. You will be upgraded within 2-4 hours.',
+            'pending': True
         })
         
     except Exception as e:
@@ -1438,7 +781,7 @@ def verify_payment():
 @app.route('/payment/manual-verification', methods=['POST'])
 @login_required
 def manual_verification():
-    """Manual payment verification - requires admin approval"""
+    """Manual payment verification"""
     try:
         data = request.get_json()
         payment_id = data.get('payment_id')
@@ -1448,23 +791,19 @@ def manual_verification():
         if not user_upi_id:
             return jsonify({'success': False, 'error': 'UPI ID is required'}), 400
         
-        from payment_models import Payment
+        # ✅ Payment is already imported
         payment = Payment.query.filter_by(payment_id=payment_id, user_id=current_user.id).first()
         
         if payment:
             payment.upi_id = user_upi_id
-            payment.status = 'manual_verification_pending'  # Changed status
+            payment.status = 'manual_verification_pending'
             db.session.commit()
         
-        # Send notification to admin
-        send_manual_verification_email(current_user, payment_id, user_upi_id, amount)
+        logger.info(f"Manual verification requested - User: {current_user.email}, Payment: {payment_id}")
         
-        logger.info(f"Manual verification requested - User: {current_user.email}, Payment: {payment_id}, UPI: {user_upi_id}")
-        
-        # NO AUTO-APPROVAL - removed the auto-upgrade code
         return jsonify({
             'success': True,
-            'message': 'Manual verification request submitted. We will verify your payment within 24 hours and upgrade your account. You will receive an email confirmation.',
+            'message': 'Manual verification request submitted. We will verify within 24 hours.',
             'contact_email': 'adystar67@gmail.com',
             'pending': True
         })
@@ -1474,16 +813,18 @@ def manual_verification():
         db.session.rollback()
         return jsonify({'success': False, 'error': 'Manual verification request failed'}), 500
 
-# Admin routes
+# ============================================================================
+# ADMIN ROUTES
+# ============================================================================
+
 @app.route('/admin/payments')
 @login_required
 def admin_payments():
     """Admin page to view and approve payments"""
-    # Add admin check here
-    if current_user.email != 'adystar67@gmail.com':  # Your admin email
+    if current_user.email != 'adystar67@gmail.com':
         return redirect(url_for('dashboard'))
     
-    from payment_models import Payment
+    # ✅ Payment is already imported
     pending_payments = Payment.query.filter(
         Payment.status.in_(['pending_verification', 'manual_verification_pending'])
     ).order_by(Payment.created_at.desc()).all()
@@ -1498,7 +839,7 @@ def approve_payment(payment_id):
         return jsonify({'success': False, 'error': 'Unauthorized'}), 403
     
     try:
-        from payment_models import Payment
+        # ✅ Payment is already imported
         payment = Payment.query.get(payment_id)
         
         if not payment:
@@ -1513,9 +854,6 @@ def approve_payment(payment_id):
         payment.completed_at = datetime.utcnow()
         
         db.session.commit()
-        
-        # Send confirmation email to user
-        send_upgrade_confirmation_email(user)
         
         logger.info(f"Payment approved by admin - User: {user.email}, Payment: {payment.payment_id}")
         
@@ -1534,7 +872,7 @@ def reject_payment(payment_id):
         return jsonify({'success': False, 'error': 'Unauthorized'}), 403
     
     try:
-        from payment_models import Payment
+        # ✅ Payment is already imported
         payment = Payment.query.get(payment_id)
         
         if not payment:
@@ -1546,10 +884,7 @@ def reject_payment(payment_id):
         payment.status = 'rejected'
         db.session.commit()
         
-        # Send rejection email to user
         user = User.query.get(payment.user_id)
-        send_rejection_email(user, reason)
-        
         logger.info(f"Payment rejected by admin - User: {user.email}, Reason: {reason}")
         
         return jsonify({'success': True, 'message': 'Payment rejected'})
@@ -1559,99 +894,68 @@ def reject_payment(payment_id):
         db.session.rollback()
         return jsonify({'success': False, 'error': str(e)}), 500
 
-# Email notification functions
-def send_payment_notification_email(user, payment, transaction_id):
-    """Send email to admin about new payment"""
-    subject = f"New Payment Verification - {user.email}"
-    body = f"""
-    New payment verification request:
-    
-    User: {user.first_name} {user.last_name}
-    Email: {user.email}
-    Payment ID: {payment.payment_id}
-    Transaction ID: {transaction_id}
-    Amount: ₹{payment.amount}
-    
-    Verify at: http://yoursite.com/admin/payments
-    """
-    
-    # Implement actual email sending here (using Flask-Mail, SendGrid, etc.)
-    logger.info(f"Payment notification email: {subject}")
-    print(body)  # For testing
+# ============================================================================
+# UTILITY ROUTES
+# ============================================================================
 
-def send_manual_verification_email(user, payment_id, upi_id, amount):
-    """Send email to admin about manual verification request"""
-    subject = f"Manual Payment Verification - {user.email}"
-    body = f"""
-    Manual payment verification request:
+@app.route('/test-ai')
+def test_ai():
+    """Test route to verify AI model is working"""
+    if not AI_AVAILABLE or not ai_model or not ai_model.client:
+        return jsonify({'status': 'AI not available'})
     
-    User: {user.first_name} {user.last_name}
-    Email: {user.email}
-    Payment ID: {payment_id}
-    User's UPI ID: {upi_id}
-    Amount: ₹{amount}
-    
-    Check your UPI transaction history for payment from: {upi_id}
-    Verify at: http://yoursite.com/admin/payments
-    """
-    
-    logger.info(f"Manual verification email: {subject}")
-    print(body)  # For testing
+    try:
+        test_data = {
+            'user_name': 'Test User',
+            'destinations': ['France'],
+            'start_date': '2025-01-01',
+            'end_date': '2025-01-03',
+            'traveler_type': 'Solo',
+            'budget': 2000,
+            'currency_symbol': ',
+            'interests': 'Historical Sites, Food',
+            'notes': 'Test itinerary',
+            'plan': 'free',
+            'days': 3
+        }
+        
+        result = ai_model.generate_itinerary(test_data)
+        return jsonify({
+            'status': 'AI working',
+            'test_result': 'Success' if result else 'Failed',
+            'days_generated': len(result.get('days', [])) if result else 0
+        })
+        
+    except Exception as e:
+        return jsonify({'status': 'AI error', 'error': str(e)})
 
-def send_upgrade_confirmation_email(user):
-    """Send confirmation email to user after upgrade"""
-    subject = "Welcome to TripStar AI Pro!"
-    body = f"""
-    Hi {user.first_name},
-    
-    Your payment has been verified and your account has been upgraded to PRO! 🎉
-    
-    You now have:
-    ✅ Unlimited AI itinerary generation
-    ✅ Premium features
-    ✅ Priority support
-    
-    Start creating amazing itineraries: http://yoursite.com/dashboard
-    
-    Thanks for upgrading!
-    TripStar AI Team
-    """
-    
-    logger.info(f"Upgrade confirmation email sent to: {user.email}")
-    print(body)  # For testing
+@app.route('/health')
+def health_check():
+    """Health check endpoint"""
+    try:
+        db.session.execute(db.text('SELECT 1'))
+        return jsonify({
+            'status': 'healthy',
+            'database': 'connected',
+            'timestamp': datetime.now().isoformat()
+        })
+    except Exception as e:
+        return jsonify({
+            'status': 'unhealthy',
+            'database': 'disconnected',
+            'error': str(e),
+            'timestamp': datetime.now().isoformat()
+        }), 500
 
-def send_rejection_email(user, reason):
-    """Send rejection email to user"""
-    subject = "Payment Verification Issue - TripStar AI"
-    body = f"""
-    Hi {user.first_name},
-    
-    We were unable to verify your payment.
-    
-    Reason: {reason}
-    
-    If you believe this is an error, please contact us at adystar67@gmail.com
-    with your transaction details.
-    
-    TripStar AI Team
-    """
-    
-    logger.info(f"Rejection email sent to: {user.email}")
-    print(body)  # For testing
+@app.route('/static/<path:filename>')
+def serve_static(filename):
+    """Serve static files (CSS, JS)"""
+    return send_from_directory('static', filename)
 
-@app.route('/check-pro-access')
-@login_required
-def check_pro_access():
-    """Check if user has pro access"""
-    free_uses_remaining = current_user.get_remaining_free_uses()
-    return jsonify({
-        'is_pro': current_user.plan == 'pro',
-        'plan': current_user.plan,
-        'unlimited_access': current_user.plan == 'pro',
-        'free_uses_remaining': free_uses_remaining
-    })
+# ============================================================================
+# ERROR HANDLERS
+# ============================================================================
 
-# Error handlers
 @app.errorhandler(404)
 def not_found(error):
     return jsonify({'error': 'Resource not found'}), 404
@@ -1660,13 +964,14 @@ def not_found(error):
 def internal_error(error):
     return jsonify({'error': 'Internal server error'}), 500
 
+# ============================================================================
+# DATABASE INITIALIZATION
+# ============================================================================
+
 def init_database():
     """Initialize database tables"""
     with app.app_context():
         try:
-            # Import all models to ensure they're registered
-            from models import User, Itinerary, UsageRecord, Payment
-            
             # Create all tables
             db.create_all()
             print("✅ Database tables created successfully!")
@@ -1686,9 +991,13 @@ def init_database():
             import traceback
             traceback.print_exc()
 
-# CRITICAL: Initialize database on startup (not just when running locally)
+# Initialize database on startup
 print("🔧 Initializing database...")
 init_database()
+
+# ============================================================================
+# APPLICATION ENTRY POINT
+# ============================================================================
 
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 5000))
