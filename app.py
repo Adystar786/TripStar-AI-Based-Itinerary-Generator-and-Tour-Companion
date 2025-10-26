@@ -3,12 +3,11 @@ from flask_cors import CORS
 from flask_login import LoginManager, login_user, logout_user, login_required, current_user
 import json
 import os
-from payment_models import Payment
 from datetime import datetime, timedelta
 import logging
 import uuid
-from flask import request, jsonify, render_template
 from models import db, User, Itinerary, UsageRecord
+from payment_models import Payment
 import qrcode
 from io import BytesIO
 import base64
@@ -71,354 +70,27 @@ except ImportError:
     Payment = None
 
 app = Flask(__name__)
-app.config['SECRET_KEY'] = 'tripstar-ai-secret-key-2025-change-in-production'
-app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///tripstar.db'
+
+# CRITICAL: Configure database URL from environment
+database_url = os.getenv('DATABASE_URL')
+if not database_url:
+    raise ValueError("DATABASE_URL environment variable is not set!")
+
+# Fix for Heroku/Render postgres:// -> postgresql://
+if database_url.startswith('postgres://'):
+    database_url = database_url.replace('postgres://', 'postgresql://', 1)
+
+app.config['SECRET_KEY'] = os.getenv('SECRET_KEY', 'tripstar-ai-secret-key-2025-change-in-production')
+app.config['SQLALCHEMY_DATABASE_URI'] = database_url
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
-app.config['SESSION_PERMANENT'] = False
-
-@app.route('/payment/generate-qr', methods=['POST'])
-@login_required
-def generate_qr():
-    """Generate UPI QR code for payment"""
-    try:
-        data = request.get_json()
-        plan = data.get('plan', 'pro')
-        
-        amount = 499 if plan == 'pro' else 99
-        upi_id = "adnanstar786-1@oksbi"
-        merchant_name = "TripStarAI"
-        
-        payment_id = str(uuid.uuid4())[:8]
-        upi_string = f"upi://pay?pa={upi_id}&pn={merchant_name}&am={amount}&cu=INR&tn=TripStarPro-{payment_id}"
-        
-        qr = qrcode.QRCode(version=1, error_correction=qrcode.constants.ERROR_CORRECT_L, box_size=10, border=4)
-        qr.add_data(upi_string)
-        qr.make(fit=True)
-        
-        img = qr.make_image(fill_color="black", back_color="white")
-        buffered = BytesIO()
-        img.save(buffered, format="PNG")
-        img_str = base64.b64encode(buffered.getvalue()).decode()
-        
-        # Import Payment model
-        from payment_models import Payment
-        payment = Payment(
-            user_id=current_user.id,
-            payment_id=payment_id,
-            plan=plan,
-            amount=amount,
-            status='pending',
-            upi_id=upi_id
-        )
-        db.session.add(payment)
-        db.session.commit()
-        
-        return jsonify({
-            'success': True,
-            'qr_code': f"data:image/png;base64,{img_str}",
-            'payment_id': payment_id,
-            'upi_id': upi_id,
-            'amount': amount,
-            'upi_string': upi_string
-        })
-        
-    except Exception as e:
-        logger.error(f"QR generation error: {str(e)}")
-        return jsonify({'success': False, 'error': str(e)}), 500
-
-@app.route('/payment/initiate', methods=['POST'])
-@login_required
-def initiate_payment():
-    """Initiate payment for pro plan"""
-    try:
-        data = request.get_json()
-        plan = data.get('plan', 'pro')
-        
-        if plan not in ['pro', 'per_export']:
-            return jsonify({'success': False, 'error': 'Invalid plan'}), 400
-        
-        payment_id = str(uuid.uuid4())
-        amount = 499 if plan == 'pro' else 99
-        
-        from payment_models import Payment
-        payment = Payment(
-            user_id=current_user.id,
-            payment_id=payment_id,
-            plan=plan,
-            amount=amount,
-            status='initiated'
-        )
-        db.session.add(payment)
-        db.session.commit()
-        
-        return jsonify({
-            'success': True,
-            'payment_id': payment_id,
-            'amount': amount,
-            'plan': plan,
-            'upi_id': 'adnanstar786-1@oksbi',
-            'contact_email': 'adystar67@gmail.com'
-        })
-        
-    except Exception as e:
-        logger.error(f"Payment initiation error: {str(e)}")
-        db.session.rollback()
-        return jsonify({'success': False, 'error': 'Payment initiation failed'}), 500
-
-@app.route('/payment/verify', methods=['POST'])
-@login_required
-def verify_payment():
-    """Verify payment - requires manual admin approval"""
-    try:
-        data = request.get_json()
-        payment_id = data.get('payment_id')
-        transaction_id = data.get('transaction_id')
-        
-        if not transaction_id:
-            return jsonify({'success': False, 'error': 'Transaction ID is required'}), 400
-        
-        from payment_models import Payment
-        payment = Payment.query.filter_by(payment_id=payment_id, user_id=current_user.id).first()
-        
-        if not payment:
-            return jsonify({'success': False, 'error': 'Payment record not found'}), 404
-        
-        # Store transaction ID but DON'T auto-approve
-        payment.transaction_id = transaction_id
-        payment.status = 'pending_verification'  # Changed from 'completed'
-        db.session.commit()
-        
-        # Send notification email to admin (you)
-        send_payment_notification_email(current_user, payment, transaction_id)
-        
-        logger.info(f"Payment verification pending - User: {current_user.email}, Transaction: {transaction_id}")
-        
-        return jsonify({
-            'success': True,
-            'message': 'Payment submitted for verification. You will be upgraded within 2-4 hours after we verify your payment. Check your email for updates.',
-            'pending': True  # Important: tells frontend it's not instant
-        })
-        
-    except Exception as e:
-        logger.error(f"Payment verification error: {str(e)}")
-        db.session.rollback()
-        return jsonify({'success': False, 'error': 'Payment verification failed'}), 500
-
-@app.route('/payment/manual-verification', methods=['POST'])
-@login_required
-def manual_verification():
-    """Manual payment verification - requires admin approval"""
-    try:
-        data = request.get_json()
-        payment_id = data.get('payment_id')
-        user_upi_id = data.get('upi_id')
-        amount = data.get('amount')
-        
-        if not user_upi_id:
-            return jsonify({'success': False, 'error': 'UPI ID is required'}), 400
-        
-        from payment_models import Payment
-        payment = Payment.query.filter_by(payment_id=payment_id, user_id=current_user.id).first()
-        
-        if payment:
-            payment.upi_id = user_upi_id
-            payment.status = 'manual_verification_pending'  # Changed status
-            db.session.commit()
-        
-        # Send notification to admin
-        send_manual_verification_email(current_user, payment_id, user_upi_id, amount)
-        
-        logger.info(f"Manual verification requested - User: {current_user.email}, Payment: {payment_id}, UPI: {user_upi_id}")
-        
-        # NO AUTO-APPROVAL - removed the auto-upgrade code
-        return jsonify({
-            'success': True,
-            'message': 'Manual verification request submitted. We will verify your payment within 24 hours and upgrade your account. You will receive an email confirmation.',
-            'contact_email': 'adystar67@gmail.com',
-            'pending': True
-        })
-        
-    except Exception as e:
-        logger.error(f"Manual verification error: {str(e)}")
-        db.session.rollback()
-        return jsonify({'success': False, 'error': 'Manual verification request failed'}), 500
-
-# Add admin route to approve payments
-@app.route('/admin/payments')
-@login_required
-def admin_payments():
-    """Admin page to view and approve payments"""
-    # Add admin check here
-    if current_user.email != 'adystar67@gmail.com':  # Your admin email
-        return redirect(url_for('dashboard'))
-    
-    from payment_models import Payment
-    pending_payments = Payment.query.filter(
-        Payment.status.in_(['pending_verification', 'manual_verification_pending'])
-    ).order_by(Payment.created_at.desc()).all()
-    
-    return render_template('admin_payments.html', payments=pending_payments)
-
-@app.route('/admin/approve-payment/<int:payment_id>', methods=['POST'])
-@login_required
-def approve_payment(payment_id):
-    """Admin approves a payment"""
-    if current_user.email != 'adystar67@gmail.com':
-        return jsonify({'success': False, 'error': 'Unauthorized'}), 403
-    
-    try:
-        from payment_models import Payment
-        payment = Payment.query.get(payment_id)
-        
-        if not payment:
-            return jsonify({'success': False, 'error': 'Payment not found'}), 404
-        
-        # Upgrade user to pro
-        user = User.query.get(payment.user_id)
-        user.plan = 'pro'
-        
-        # Update payment status
-        payment.status = 'completed'
-        payment.completed_at = datetime.utcnow()
-        
-        db.session.commit()
-        
-        # Send confirmation email to user
-        send_upgrade_confirmation_email(user)
-        
-        logger.info(f"Payment approved by admin - User: {user.email}, Payment: {payment.payment_id}")
-        
-        return jsonify({'success': True, 'message': 'Payment approved and user upgraded'})
-        
-    except Exception as e:
-        logger.error(f"Payment approval error: {str(e)}")
-        db.session.rollback()
-        return jsonify({'success': False, 'error': str(e)}), 500
-
-@app.route('/admin/reject-payment/<int:payment_id>', methods=['POST'])
-@login_required
-def reject_payment(payment_id):
-    """Admin rejects a payment"""
-    if current_user.email != 'adystar67@gmail.com':
-        return jsonify({'success': False, 'error': 'Unauthorized'}), 403
-    
-    try:
-        from payment_models import Payment
-        payment = Payment.query.get(payment_id)
-        
-        if not payment:
-            return jsonify({'success': False, 'error': 'Payment not found'}), 404
-        
-        data = request.get_json()
-        reason = data.get('reason', 'Payment verification failed')
-        
-        payment.status = 'rejected'
-        db.session.commit()
-        
-        # Send rejection email to user
-        user = User.query.get(payment.user_id)
-        send_rejection_email(user, reason)
-        
-        logger.info(f"Payment rejected by admin - User: {user.email}, Reason: {reason}")
-        
-        return jsonify({'success': True, 'message': 'Payment rejected'})
-        
-    except Exception as e:
-        logger.error(f"Payment rejection error: {str(e)}")
-        db.session.rollback()
-        return jsonify({'success': False, 'error': str(e)}), 500
-
-# Email notification functions
-def send_payment_notification_email(user, payment, transaction_id):
-    """Send email to admin about new payment"""
-    subject = f"New Payment Verification - {user.email}"
-    body = f"""
-    New payment verification request:
-    
-    User: {user.first_name} {user.last_name}
-    Email: {user.email}
-    Payment ID: {payment.payment_id}
-    Transaction ID: {transaction_id}
-    Amount: ₹{payment.amount}
-    
-    Verify at: http://yoursite.com/admin/payments
-    """
-    
-    # Implement actual email sending here (using Flask-Mail, SendGrid, etc.)
-    logger.info(f"Payment notification email: {subject}")
-    print(body)  # For testing
-
-def send_manual_verification_email(user, payment_id, upi_id, amount):
-    """Send email to admin about manual verification request"""
-    subject = f"Manual Payment Verification - {user.email}"
-    body = f"""
-    Manual payment verification request:
-    
-    User: {user.first_name} {user.last_name}
-    Email: {user.email}
-    Payment ID: {payment_id}
-    User's UPI ID: {upi_id}
-    Amount: ₹{amount}
-    
-    Check your UPI transaction history for payment from: {upi_id}
-    Verify at: http://yoursite.com/admin/payments
-    """
-    
-    logger.info(f"Manual verification email: {subject}")
-    print(body)  # For testing
-
-def send_upgrade_confirmation_email(user):
-    """Send confirmation email to user after upgrade"""
-    subject = "Welcome to TripStar AI Pro!"
-    body = f"""
-    Hi {user.first_name},
-    
-    Your payment has been verified and your account has been upgraded to PRO! 🎉
-    
-    You now have:
-    ✅ Unlimited AI itinerary generation
-    ✅ Premium features
-    ✅ Priority support
-    
-    Start creating amazing itineraries: http://yoursite.com/dashboard
-    
-    Thanks for upgrading!
-    TripStar AI Team
-    """
-    
-    logger.info(f"Upgrade confirmation email sent to: {user.email}")
-    print(body)  # For testing
-
-def send_rejection_email(user, reason):
-    """Send rejection email to user"""
-    subject = "Payment Verification Issue - TripStar AI"
-    body = f"""
-    Hi {user.first_name},
-    
-    We were unable to verify your payment.
-    
-    Reason: {reason}
-    
-    If you believe this is an error, please contact us at adystar67@gmail.com
-    with your transaction details.
-    
-    TripStar AI Team
-    """
-    
-    logger.info(f"Rejection email sent to: {user.email}")
-    print(body)  # For testing
-
-@app.route('/check-pro-access')
-@login_required
-def check_pro_access():
-    """Check if user has pro access"""
-    free_uses_remaining = current_user.get_remaining_free_uses()
-    return jsonify({
-        'is_pro': current_user.plan == 'pro',
-        'plan': current_user.plan,
-        'unlimited_access': current_user.plan == 'pro',
-        'free_uses_remaining': free_uses_remaining
-    })
+app.config['SQLALCHEMY_ENGINE_OPTIONS'] = {
+    'pool_size': 5,
+    'pool_recycle': 3600,
+    'pool_pre_ping': True,
+    'connect_args': {
+        'sslmode': 'require'
+    }
+}
 
 # Initialize extensions
 db.init_app(app)
@@ -617,8 +289,6 @@ def generate_itinerary():
         
         logger.info(f"Generating itinerary for user: {current_user.email}")
         logger.info(f"User plan: {current_user.plan}")
-        logger.info(f"Destinations received: {data.get('destinations')}")
-        logger.info(f"Destination codes received: {data.get('destinationCodes')}")
         
         # Check free plan usage
         if current_user.plan == 'free':
@@ -630,7 +300,11 @@ def generate_itinerary():
                 }), 429
             
             # Record usage
-            usage = UsageRecord(user_id=current_user.id, plan='free', action='itinerary_generation')
+            usage = UsageRecord(
+                user_id=current_user.id, 
+                plan='free', 
+                action='itinerary_generation'
+            )
             db.session.add(usage)
         
         # Validate required fields
@@ -642,11 +316,11 @@ def generate_itinerary():
                     'error': f'Missing required field: {field}'
                 }), 400
         
-        # Prepare data for AI model
+        # Prepare AI input data
         ai_input_data = {
             'user_name': data['userName'],
             'destinations': data['destinations'],
-            'destination_codes': data.get('destinationCodes', []),  # ADD THIS
+            'destination_codes': data.get('destinationCodes', []),
             'start_date': data['startDate'],
             'end_date': data['endDate'],
             'traveler_type': data['travelerType'],
@@ -656,55 +330,28 @@ def generate_itinerary():
             'notes': data.get('notes', ''),
             'plan': current_user.plan,
             'budget_friendly': data.get('budgetFriendly', False),
-            'departure_city': data.get('departureCity', ''),  # ADD THIS
-            'departure_city_code': data.get('departureCityCode', '')  # ADD THIS
+            'departure_city': data.get('departureCity', ''),
+            'departure_city_code': data.get('departureCityCode', '')
         }
         
-        # Calculate days from dates
+        # Calculate days
         start_date = datetime.strptime(data['startDate'], '%Y-%m-%d')
         end_date = datetime.strptime(data['endDate'], '%Y-%m-%d')
         ai_input_data['days'] = (end_date - start_date).days + 1
         
-        print(f"🎯 Generating {ai_input_data['days']}-day itinerary for {len(data['destinations'])} destinations with AI...")
-        print(f"📊 Destinations: {', '.join(data['destinations'])}")
+        print(f"🎯 Generating {ai_input_data['days']}-day itinerary...")
         
-        # Use appropriate AI model based on plan
-        if AI_AVAILABLE and AI_MODEL_READY:
-            if ai_input_data['plan'] == 'pro':
-                print(f"🚀 Using PRO AI model for pro plan itinerary generation")
-                if not hasattr(generate_itinerary, 'pro_model'):
-                    try:
-                        from pro_model_config import TripStarProModel
-                        generate_itinerary.pro_model = TripStarProModel()
-                        print("✅ Pro AI model initialized successfully")
-                    except ImportError as e:
-                        print(f"❌ Pro AI model not available: {e}")
-                        generate_itinerary.pro_model = None
-                
-                if generate_itinerary.pro_model and generate_itinerary.pro_model.client:
-                    itinerary = generate_itinerary.pro_model.generate_itinerary(ai_input_data)
-                elif ai_model and ai_model.client:
-                    print("⚠️ Pro model not available, using basic AI model")
-                    itinerary = ai_model.generate_itinerary(ai_input_data)
-                else:
-                    print("⚠️ No AI models available, using template itinerary")
-                    itinerary = generate_fallback_itinerary(ai_input_data)
-            else:
-                print(f"🆓 Using basic AI model for free plan itinerary generation")
-                if ai_model and ai_model.client:
-                    itinerary = ai_model.generate_itinerary(ai_input_data)
-                else:
-                    print("⚠️ AI model not available, using template itinerary")
-                    itinerary = generate_fallback_itinerary(ai_input_data)
+        # Generate itinerary
+        if AI_AVAILABLE and ai_model and ai_model.client:
+            itinerary = ai_model.generate_itinerary(ai_input_data)
         else:
-            print("⚠️ AI not available, using template itinerary")
             itinerary = generate_fallback_itinerary(ai_input_data)
         
         if itinerary:
-            # Save itinerary to database
+            # Save to database
             new_itinerary = Itinerary(
                 user_id=current_user.id,
-                title=f"{', '.join(data['destinations'])} Itinerary",  # UPDATED
+                title=f"{', '.join(data['destinations'])} Itinerary",
                 destinations=json.dumps(data['destinations']),
                 travel_dates=json.dumps({
                     'start_date': data['startDate'],
@@ -722,7 +369,7 @@ def generate_itinerary():
             db.session.add(new_itinerary)
             db.session.commit()
             
-            logger.info(f"Itinerary generated and saved successfully for {current_user.email}")
+            logger.info(f"Itinerary generated and saved for {current_user.email}")
             
             free_uses_remaining = current_user.get_remaining_free_uses()
             return jsonify({
@@ -847,7 +494,21 @@ def test_ai():
 @app.route('/health')
 def health_check():
     """Health check endpoint"""
-    return jsonify({'status': 'healthy', 'timestamp': datetime.now().isoformat()})
+    try:
+        # Check database connection
+        db.session.execute(db.text('SELECT 1'))
+        return jsonify({
+            'status': 'healthy',
+            'database': 'connected',
+            'timestamp': datetime.now().isoformat()
+        })
+    except Exception as e:
+        return jsonify({
+            'status': 'unhealthy',
+            'database': 'disconnected',
+            'error': str(e),
+            'timestamp': datetime.now().isoformat()
+        }), 500
 
 @app.route('/get-ai-interests', methods=['POST'])
 @login_required
@@ -1653,6 +1314,351 @@ def force_logout():
     session.clear()
     return redirect(url_for('welcome'))
 
+# Payment routes
+@app.route('/payment/generate-qr', methods=['POST'])
+@login_required
+def generate_qr():
+    """Generate UPI QR code for payment"""
+    try:
+        data = request.get_json()
+        plan = data.get('plan', 'pro')
+        
+        amount = 499 if plan == 'pro' else 99
+        upi_id = "adnanstar786-1@oksbi"
+        merchant_name = "TripStarAI"
+        
+        payment_id = str(uuid.uuid4())[:8]
+        upi_string = f"upi://pay?pa={upi_id}&pn={merchant_name}&am={amount}&cu=INR&tn=TripStarPro-{payment_id}"
+        
+        qr = qrcode.QRCode(version=1, error_correction=qrcode.constants.ERROR_CORRECT_L, box_size=10, border=4)
+        qr.add_data(upi_string)
+        qr.make(fit=True)
+        
+        img = qr.make_image(fill_color="black", back_color="white")
+        buffered = BytesIO()
+        img.save(buffered, format="PNG")
+        img_str = base64.b64encode(buffered.getvalue()).decode()
+        
+        # Import Payment model
+        from payment_models import Payment
+        payment = Payment(
+            user_id=current_user.id,
+            payment_id=payment_id,
+            plan=plan,
+            amount=amount,
+            status='pending',
+            upi_id=upi_id
+        )
+        db.session.add(payment)
+        db.session.commit()
+        
+        return jsonify({
+            'success': True,
+            'qr_code': f"data:image/png;base64,{img_str}",
+            'payment_id': payment_id,
+            'upi_id': upi_id,
+            'amount': amount,
+            'upi_string': upi_string
+        })
+        
+    except Exception as e:
+        logger.error(f"QR generation error: {str(e)}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+@app.route('/payment/initiate', methods=['POST'])
+@login_required
+def initiate_payment():
+    """Initiate payment for pro plan"""
+    try:
+        data = request.get_json()
+        plan = data.get('plan', 'pro')
+        
+        if plan not in ['pro', 'per_export']:
+            return jsonify({'success': False, 'error': 'Invalid plan'}), 400
+        
+        payment_id = str(uuid.uuid4())
+        amount = 499 if plan == 'pro' else 99
+        
+        from payment_models import Payment
+        payment = Payment(
+            user_id=current_user.id,
+            payment_id=payment_id,
+            plan=plan,
+            amount=amount,
+            status='initiated'
+        )
+        db.session.add(payment)
+        db.session.commit()
+        
+        return jsonify({
+            'success': True,
+            'payment_id': payment_id,
+            'amount': amount,
+            'plan': plan,
+            'upi_id': 'adnanstar786-1@oksbi',
+            'contact_email': 'adystar67@gmail.com'
+        })
+        
+    except Exception as e:
+        logger.error(f"Payment initiation error: {str(e)}")
+        db.session.rollback()
+        return jsonify({'success': False, 'error': 'Payment initiation failed'}), 500
+
+@app.route('/payment/verify', methods=['POST'])
+@login_required
+def verify_payment():
+    """Verify payment - requires manual admin approval"""
+    try:
+        data = request.get_json()
+        payment_id = data.get('payment_id')
+        transaction_id = data.get('transaction_id')
+        
+        if not transaction_id:
+            return jsonify({'success': False, 'error': 'Transaction ID is required'}), 400
+        
+        from payment_models import Payment
+        payment = Payment.query.filter_by(payment_id=payment_id, user_id=current_user.id).first()
+        
+        if not payment:
+            return jsonify({'success': False, 'error': 'Payment record not found'}), 404
+        
+        # Store transaction ID but DON'T auto-approve
+        payment.transaction_id = transaction_id
+        payment.status = 'pending_verification'  # Changed from 'completed'
+        db.session.commit()
+        
+        # Send notification email to admin (you)
+        send_payment_notification_email(current_user, payment, transaction_id)
+        
+        logger.info(f"Payment verification pending - User: {current_user.email}, Transaction: {transaction_id}")
+        
+        return jsonify({
+            'success': True,
+            'message': 'Payment submitted for verification. You will be upgraded within 2-4 hours after we verify your payment. Check your email for updates.',
+            'pending': True  # Important: tells frontend it's not instant
+        })
+        
+    except Exception as e:
+        logger.error(f"Payment verification error: {str(e)}")
+        db.session.rollback()
+        return jsonify({'success': False, 'error': 'Payment verification failed'}), 500
+
+@app.route('/payment/manual-verification', methods=['POST'])
+@login_required
+def manual_verification():
+    """Manual payment verification - requires admin approval"""
+    try:
+        data = request.get_json()
+        payment_id = data.get('payment_id')
+        user_upi_id = data.get('upi_id')
+        amount = data.get('amount')
+        
+        if not user_upi_id:
+            return jsonify({'success': False, 'error': 'UPI ID is required'}), 400
+        
+        from payment_models import Payment
+        payment = Payment.query.filter_by(payment_id=payment_id, user_id=current_user.id).first()
+        
+        if payment:
+            payment.upi_id = user_upi_id
+            payment.status = 'manual_verification_pending'  # Changed status
+            db.session.commit()
+        
+        # Send notification to admin
+        send_manual_verification_email(current_user, payment_id, user_upi_id, amount)
+        
+        logger.info(f"Manual verification requested - User: {current_user.email}, Payment: {payment_id}, UPI: {user_upi_id}")
+        
+        # NO AUTO-APPROVAL - removed the auto-upgrade code
+        return jsonify({
+            'success': True,
+            'message': 'Manual verification request submitted. We will verify your payment within 24 hours and upgrade your account. You will receive an email confirmation.',
+            'contact_email': 'adystar67@gmail.com',
+            'pending': True
+        })
+        
+    except Exception as e:
+        logger.error(f"Manual verification error: {str(e)}")
+        db.session.rollback()
+        return jsonify({'success': False, 'error': 'Manual verification request failed'}), 500
+
+# Admin routes
+@app.route('/admin/payments')
+@login_required
+def admin_payments():
+    """Admin page to view and approve payments"""
+    # Add admin check here
+    if current_user.email != 'adystar67@gmail.com':  # Your admin email
+        return redirect(url_for('dashboard'))
+    
+    from payment_models import Payment
+    pending_payments = Payment.query.filter(
+        Payment.status.in_(['pending_verification', 'manual_verification_pending'])
+    ).order_by(Payment.created_at.desc()).all()
+    
+    return render_template('admin_payments.html', payments=pending_payments)
+
+@app.route('/admin/approve-payment/<int:payment_id>', methods=['POST'])
+@login_required
+def approve_payment(payment_id):
+    """Admin approves a payment"""
+    if current_user.email != 'adystar67@gmail.com':
+        return jsonify({'success': False, 'error': 'Unauthorized'}), 403
+    
+    try:
+        from payment_models import Payment
+        payment = Payment.query.get(payment_id)
+        
+        if not payment:
+            return jsonify({'success': False, 'error': 'Payment not found'}), 404
+        
+        # Upgrade user to pro
+        user = User.query.get(payment.user_id)
+        user.plan = 'pro'
+        
+        # Update payment status
+        payment.status = 'completed'
+        payment.completed_at = datetime.utcnow()
+        
+        db.session.commit()
+        
+        # Send confirmation email to user
+        send_upgrade_confirmation_email(user)
+        
+        logger.info(f"Payment approved by admin - User: {user.email}, Payment: {payment.payment_id}")
+        
+        return jsonify({'success': True, 'message': 'Payment approved and user upgraded'})
+        
+    except Exception as e:
+        logger.error(f"Payment approval error: {str(e)}")
+        db.session.rollback()
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+@app.route('/admin/reject-payment/<int:payment_id>', methods=['POST'])
+@login_required
+def reject_payment(payment_id):
+    """Admin rejects a payment"""
+    if current_user.email != 'adystar67@gmail.com':
+        return jsonify({'success': False, 'error': 'Unauthorized'}), 403
+    
+    try:
+        from payment_models import Payment
+        payment = Payment.query.get(payment_id)
+        
+        if not payment:
+            return jsonify({'success': False, 'error': 'Payment not found'}), 404
+        
+        data = request.get_json()
+        reason = data.get('reason', 'Payment verification failed')
+        
+        payment.status = 'rejected'
+        db.session.commit()
+        
+        # Send rejection email to user
+        user = User.query.get(payment.user_id)
+        send_rejection_email(user, reason)
+        
+        logger.info(f"Payment rejected by admin - User: {user.email}, Reason: {reason}")
+        
+        return jsonify({'success': True, 'message': 'Payment rejected'})
+        
+    except Exception as e:
+        logger.error(f"Payment rejection error: {str(e)}")
+        db.session.rollback()
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+# Email notification functions
+def send_payment_notification_email(user, payment, transaction_id):
+    """Send email to admin about new payment"""
+    subject = f"New Payment Verification - {user.email}"
+    body = f"""
+    New payment verification request:
+    
+    User: {user.first_name} {user.last_name}
+    Email: {user.email}
+    Payment ID: {payment.payment_id}
+    Transaction ID: {transaction_id}
+    Amount: ₹{payment.amount}
+    
+    Verify at: http://yoursite.com/admin/payments
+    """
+    
+    # Implement actual email sending here (using Flask-Mail, SendGrid, etc.)
+    logger.info(f"Payment notification email: {subject}")
+    print(body)  # For testing
+
+def send_manual_verification_email(user, payment_id, upi_id, amount):
+    """Send email to admin about manual verification request"""
+    subject = f"Manual Payment Verification - {user.email}"
+    body = f"""
+    Manual payment verification request:
+    
+    User: {user.first_name} {user.last_name}
+    Email: {user.email}
+    Payment ID: {payment_id}
+    User's UPI ID: {upi_id}
+    Amount: ₹{amount}
+    
+    Check your UPI transaction history for payment from: {upi_id}
+    Verify at: http://yoursite.com/admin/payments
+    """
+    
+    logger.info(f"Manual verification email: {subject}")
+    print(body)  # For testing
+
+def send_upgrade_confirmation_email(user):
+    """Send confirmation email to user after upgrade"""
+    subject = "Welcome to TripStar AI Pro!"
+    body = f"""
+    Hi {user.first_name},
+    
+    Your payment has been verified and your account has been upgraded to PRO! 🎉
+    
+    You now have:
+    ✅ Unlimited AI itinerary generation
+    ✅ Premium features
+    ✅ Priority support
+    
+    Start creating amazing itineraries: http://yoursite.com/dashboard
+    
+    Thanks for upgrading!
+    TripStar AI Team
+    """
+    
+    logger.info(f"Upgrade confirmation email sent to: {user.email}")
+    print(body)  # For testing
+
+def send_rejection_email(user, reason):
+    """Send rejection email to user"""
+    subject = "Payment Verification Issue - TripStar AI"
+    body = f"""
+    Hi {user.first_name},
+    
+    We were unable to verify your payment.
+    
+    Reason: {reason}
+    
+    If you believe this is an error, please contact us at adystar67@gmail.com
+    with your transaction details.
+    
+    TripStar AI Team
+    """
+    
+    logger.info(f"Rejection email sent to: {user.email}")
+    print(body)  # For testing
+
+@app.route('/check-pro-access')
+@login_required
+def check_pro_access():
+    """Check if user has pro access"""
+    free_uses_remaining = current_user.get_remaining_free_uses()
+    return jsonify({
+        'is_pro': current_user.plan == 'pro',
+        'plan': current_user.plan,
+        'unlimited_access': current_user.plan == 'pro',
+        'free_uses_remaining': free_uses_remaining
+    })
+
 # Error handlers
 @app.errorhandler(404)
 def not_found(error):
@@ -1662,8 +1668,7 @@ def not_found(error):
 def internal_error(error):
     return jsonify({'error': 'Internal server error'}), 500
 
-# Remove any existing uvicorn.run lines and replace with:
-
+# Initialize database
 def init_database():
     """Initialize database tables"""
     with app.app_context():
@@ -1676,8 +1681,13 @@ def init_database():
             db.create_all()
             print("✅ Database tables created successfully!")
             
+            # Verify connection
+            db.session.execute(db.text('SELECT 1'))
+            print("✅ Database connection verified!")
+            
             # Check if tables exist
-            inspector = db.inspect(db.engine)
+            from sqlalchemy import inspect
+            inspector = inspect(db.engine)
             tables = inspector.get_table_names()
             print(f"📊 Available tables: {', '.join(tables)}")
             
@@ -1687,9 +1697,10 @@ def init_database():
             traceback.print_exc()
 
 if __name__ == "__main__":
-    # Initialize database before starting the app
+    # Initialize database before starting
     init_database()
     
     port = int(os.environ.get("PORT", 5000))
     print(f"🚀 Starting TripStar AI on port {port}...")
+    print(f"📊 Database: {app.config['SQLALCHEMY_DATABASE_URI'][:30]}...")
     app.run(host="0.0.0.0", port=port, debug=True)
