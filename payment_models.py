@@ -3,6 +3,7 @@ from models import db
 
 class Payment(db.Model):
     __tablename__ = 'payments'
+    __table_args__ = {'extend_existing': True}  # ADD THIS LINE - allows table redefinition
     
     id = db.Column(db.Integer, primary_key=True)
     user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
@@ -14,5 +15,3 @@ class Payment(db.Model):
     upi_id = db.Column(db.String(100))
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     completed_at = db.Column(db.DateTime)
-    
-    user = db.relationship('User', backref='payments')
