@@ -917,7 +917,7 @@ def test_ai():
             'end_date': '2025-01-03',
             'traveler_type': 'Solo',
             'budget': 2000,
-            'currency_symbol': ',
+            'currency_symbol': '$',  # ✅ FIXED: Added missing quote and value
             'interests': 'Historical Sites, Food',
             'notes': 'Test itinerary',
             'plan': 'free',
