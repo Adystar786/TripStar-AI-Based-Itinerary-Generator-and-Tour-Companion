@@ -777,6 +777,11 @@ def verify_payment():
         logger.error(f"Payment verification error: {str(e)}")
         db.session.rollback()
         return jsonify({'success': False, 'error': 'Payment verification failed'}), 500
+        
+    except Exception as e:
+        logger.error(f"Payment verification error: {str(e)}")
+        db.session.rollback()
+        return jsonify({'success': False, 'error': 'Payment verification failed'}), 500
 
 @app.route('/payment/manual-verification', methods=['POST'])
 @login_required
